@@ -141,9 +141,9 @@ export default function Home() {
     return (
         <div className="min-h-screen bg-linear-to-b from-white via-gray-50 to-gray-100 text-gray-800">
             {/* ===== NAVBAR ===== */}
-            <header className="sticky top-0 z-50 backdrop-blur bg-white/70 border-b border-gray-200">
+            <header className="sticky top-0 z-50 bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50">
                 <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between">
+                    <div className="my-3 flex h-14 items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 shadow-sm ring-1 ring-gray-900/5 px-3 sm:px-4">
                         {/* Brand */}
                         <Link to="#home" className="group inline-flex items-center gap-2">
                             <div className="h-8 w-8 rounded-xl bg-linear-to-tr from-emerald-400 to-teal-500 shadow-sm" />
@@ -153,36 +153,36 @@ export default function Home() {
                         </Link>
 
                         {/* Desktop nav */}
-                        <ul className="hidden md:flex items-center gap-8">
+                        <ul className="hidden md:flex items-center gap-1">
                             <li>
-                                <a href="#Home" className="text-sm hover:text-emerald-700 transition">
+                                <a href="#Home" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
                                     Home
                                 </a>
                             </li>
                             <li>
-                                <a href="#aboutus" className="text-sm hover:text-emerald-700 transition">
+                                <a href="#aboutus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
                                     aboutus
                                 </a>
                             </li>
                             <li>
-                                <a href="#features" className="text-sm hover:text-emerald-700 transition">
+                                <a href="#features" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
                                     Features
                                 </a>
                             </li>
                             <li>
-                                <a href="#faq" className="text-sm hover:text-emerald-700 transition">
+                                <a href="#faq" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
                                     FAQ
                                 </a>
                             </li>
                             <li>
-                                <a href="#contactus" className="text-sm hover:text-emerald-700 transition">
+                                <a href="#contactus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
                                     contactus
                                 </a>
                             </li>
                         </ul>
 
                         {/* Actions */}
-                        <div className="hidden md:flex items-center gap-3">
+                        <div className="hidden md:flex items-center gap-2">
                             {expUser ? (
                                 <Link
                                     to={expUser.role === 1 ? "/admin" : "/user"}
@@ -190,7 +190,7 @@ export default function Home() {
                                     className="inline-flex items-center gap-2"
                                 >
                                     <span className="sr-only">Dashboard</span>
-                                    <span className="h-9 w-9 rounded-full overflow-hidden ring-1 ring-emerald-200/70 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900">
+                                    <span className="h-9 w-9 rounded-full overflow-hidden ring-2 ring-emerald-300 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900 shadow-sm">
                                         {avatarUrl ? (
                                             <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                                         ) : (
@@ -202,13 +202,13 @@ export default function Home() {
                                 <>
                                     <Link
                                         to="/login"
-                                        className="text-sm hover:text-emerald-700 transition"
+                                        className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition"
                                     >
                                         Log in
                                     </Link>
                                     <Link
                                         to="/register"
-                                        className="text-sm rounded-xl bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 transition shadow-sm"
+                                        className="text-sm rounded-xl bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 transition shadow-md"
                                     >
                                         Get Started
                                     </Link>
@@ -221,7 +221,7 @@ export default function Home() {
                         <button
                             onClick={() => setOpen(!open)}
                             aria-label="Toggle menu"
-                            className="md:hidden inline-flex items-center justify-center rounded-xl p-2 hover:bg-gray-100 transition"
+                            className="md:hidden inline-flex items-center justify-center rounded-xl p-2 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm transition"
                         >
                             <svg width="24" height="24" fill="none" stroke="currentColor">
                                 {open ? (
@@ -235,10 +235,7 @@ export default function Home() {
                 </nav>
 
                 {/* Mobile drawer */}
-                <div
-                    className={`md:hidden origin-top overflow-hidden border-t border-gray-200 bg-white ${open ? "animate-slideDown" : "hidden"
-                        }`}
-                >
+                <div className={`md:hidden origin-top overflow-hidden border-t border-gray-200 bg-white ${open ? "animate-slideDown" : "hidden"}`}>
                     <div className="px-4 py-4 space-y-3">
                         <a href="#features" onClick={() => setOpen(false)} className="block text-sm">
                             Features
@@ -249,7 +246,7 @@ export default function Home() {
                         <a href="#faq" onClick={() => setOpen(false)} className="block text-sm">
                             FAQ
                         </a>
-                        <div className="pt-2 flex items-center gap-3">
+                        <div className="pt-2 flex items-center gap-2">
                             {expUser ? (
                                 <>
                                     <Link
@@ -268,7 +265,7 @@ export default function Home() {
                                             setOpen(false);
                                             navigate("/login");
                                         }}
-                                        className="text-sm rounded-xl bg-emerald-600 px-3 py-2 text-white"
+                                        className="text-sm rounded-xl bg-emerald-600 px-3 py-2 text-white shadow"
                                     >
                                         Log out
                                     </button>
@@ -281,7 +278,7 @@ export default function Home() {
                                     <Link
                                         to="/register"
                                         onClick={() => setOpen(false)}
-                                        className="text-sm rounded-xl bg-emerald-600 px-3 py-2 text-white"
+                                        className="text-sm rounded-xl bg-emerald-600 px-3 py-2 text-white shadow"
                                     >
                                         Get Started
                                     </Link>

@@ -124,6 +124,9 @@ export default function Accounts() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [settingDefaultId, setSettingDefaultId] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null); // account object
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const onOpenEdit = (a) => {
     setEditing(a);
@@ -185,6 +188,20 @@ export default function Accounts() {
       setErr(e?.message || "Failed to change default");
     } finally {
       setSettingDefaultId(null);
+    }
+  };
+
+  const onOpenHistory = async (account) => {
+    setHistoryFor(account);
+    setHistoryRows([]);
+    setHistoryLoading(true);
+    try {
+      const res = await apiService.getTransactions({ account_id: account.id, page: 1, page_size: 10 });
+      setHistoryRows(res?.results ?? []);
+    } catch {
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -324,6 +341,12 @@ export default function Accounts() {
                           >
                             Edit
                           </button>
+                          <button
+                            onClick={() => onOpenHistory(a)}
+                            className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50"
+                          >
+                            History
+                          </button>
                           {!a.is_default && (
                             <button
                               onClick={() => onMakeDefault(a.id)}
@@ -390,6 +413,52 @@ export default function Accounts() {
           </>
         )}
       </div>
+
+      {/* ===== History Modal ===== */}
+      {historyFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setHistoryFor(null)} />
+          <div className="relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">Recent Activity — {historyFor.name}</h3>
+              <button onClick={() => setHistoryFor(null)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">Close</button>
+            </div>
+            <div className="mt-4">
+              {historyLoading ? (
+                <div className="text-sm text-gray-600">Loading…</div>
+              ) : historyRows.length === 0 ? (
+                <div className="text-sm text-gray-500">No recent transactions.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="py-2">Date</th>
+                        <th className="py-2">Description</th>
+                        <th className="py-2">Type</th>
+                        <th className="py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyRows.map((t) => (
+                        <tr key={t.id} className="border-t">
+                          <td className="py-2">{t.date ? new Date(t.date).toLocaleString() : "-"}</td>
+                          <td className="py-2">{t.description || "-"}</td>
+                          <td className="py-2">{t.type}</td>
+                          <td className={`py-2 text-right ${Number(t.amount) < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                            {Number(t.amount) < 0 ? "-" : "+"}
+                            {new Intl.NumberFormat(undefined, { style: "currency", currency: t.currency || "USD" }).format(Math.abs(Number(t.amount || 0)))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Create Modal ===== */}
       {addOpen && (

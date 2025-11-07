@@ -28,6 +28,11 @@ export default function Transactions() {
     for (const a of accounts) m.set(a.id, a.name);
     return m;
   }, [accounts]);
+  const accountById = useMemo(() => {
+    const m = new Map();
+    for (const a of accounts) m.set(a.id, a);
+    return m;
+  }, [accounts]);
   useEffect(() => {
     (async () => {
       try {
@@ -118,6 +123,10 @@ export default function Transactions() {
         to_account: addForm.type === "transfer" ? Number(addForm.to_account) : undefined,
       };
       await apiService.createTransaction(payload);
+      // Adjust account balances (client-side convenience)
+      try {
+        await applyTxEffect(payload, +1);
+      } catch { /* ignore balance errors */ }
       setAddOpen(false);
       setAddForm({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
       // refresh
@@ -166,6 +175,11 @@ export default function Transactions() {
         to_account: editForm.type === "transfer" ? Number(editForm.to_account) : undefined,
       };
       await apiService.updateTransaction(editing.id, payload);
+      // apply diff: inverse old, then new
+      try {
+        await applyTxEffect(editing, -1);
+        await applyTxEffect(payload, +1);
+      } catch { /* ignore balance errors */ }
       setEditing(null);
       setFilters((f) => ({ ...f }));
     } catch (e) {
@@ -181,6 +195,11 @@ export default function Transactions() {
     setErr("");
     try {
       await apiService.deleteTransaction(id);
+      // if we still have the row, apply inverse effect locally
+      const old = rows.find((r) => r.id === id);
+      if (old) {
+        try { await applyTxEffect(old, -1); } catch {}
+      }
       const isLast = rows.length === 1 && info.current_page > 1;
       setFilters((f) => ({ ...f, page: isLast ? info.current_page - 1 : info.current_page }));
       if (!isLast) setFilters((f) => ({ ...f }));
@@ -189,6 +208,40 @@ export default function Transactions() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  // ---- Helper: adjust account balances and notify Accounts tab ----
+  const applyTxEffect = async (tx, mult) => {
+    // tx can be original row or our payload shape
+    const type = tx.type;
+    const amt = Number(tx.amount || 0) * (isNaN(Number(tx.amount)) ? 0 : 1);
+    if (!amt) return;
+    const deltas = new Map();
+    if (type === "expense") {
+      if (tx.account) deltas.set(Number(tx.account), -(amt * mult));
+      if (tx.account_id) deltas.set(Number(tx.account_id), -(amt * mult));
+    } else if (type === "income") {
+      if (tx.account) deltas.set(Number(tx.account), +(amt * mult));
+      if (tx.account_id) deltas.set(Number(tx.account_id), +(amt * mult));
+    } else if (type === "transfer") {
+      const fromId = Number(tx.account || tx.account_id);
+      const toId = Number(tx.to_account || tx.to_account_id);
+      if (fromId) deltas.set(fromId, -(amt * mult));
+      if (toId) deltas.set(toId, +(amt * mult));
+    }
+
+    // push updates to server; update local cache too
+    for (const [id, delta] of deltas.entries()) {
+      const acc = accountById.get(id);
+      if (!acc) continue;
+      const before = Number(acc.balance || 0);
+      const after = before + delta;
+      try {
+        await apiService.updateAccount(id, { balance: after });
+      } catch { /* ignore */ }
+      acc.balance = after; // mutate local cache for immediate UI usage
+    }
+    try { localStorage.setItem("accounts:refresh", String(Date.now())); } catch {}
   };
 
   return (
@@ -366,7 +419,7 @@ export default function Transactions() {
               <div>
                 <label className="block text-gray-700 mb-1">Type</label>
                 <select value={addForm.type} onChange={(e) => setAddForm((f) => ({ ...f, type: e.target.value }))} className="w-full rounded-xl border border-gray-300 px-3 py-2">
-                  <option value="income">Income</option>
+                  <option value="income">Addition (+)</option>
                   <option value="expense">Expense</option>
                   <option value="transfer">Transfer</option>
                 </select>
@@ -422,7 +475,7 @@ export default function Transactions() {
               <div>
                 <label className="block text-gray-700 mb-1">Type</label>
                 <select value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))} className="w-full rounded-xl border border-gray-300 px-3 py-2">
-                  <option value="income">Income</option>
+                  <option value="income">Addition (+)</option>
                   <option value="expense">Expense</option>
                   <option value="transfer">Transfer</option>
                 </select>

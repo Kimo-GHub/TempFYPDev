@@ -42,6 +42,16 @@ export default function Accounts() {
     }
   };
 
+  // listen for cross-tab/account-updates notifications
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e && e.key === "accounts:refresh") fetchData();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps

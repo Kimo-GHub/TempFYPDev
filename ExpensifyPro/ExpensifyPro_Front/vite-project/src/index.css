@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* your custom CSS/animations below */
+@keyframes fadeIn { from {opacity: 0} to {opacity: 1} }
+@keyframes slideDown { from {transform: translateY(-16px); opacity: 0} to {transform: translateY(0); opacity: 1} }
+@keyframes slideUp { from {transform: translateY(24px); opacity: 0} to {transform: translateY(0); opacity: 1} }
+@keyframes floatY { 0% {transform: translateY(0)} 50% {transform: translateY(-8px)} 100% {transform: translateY(0)} }
+
+.animate-fadeIn { animation: fadeIn .7s ease-out both; }
+.animate-slideDown { animation: slideDown .5s ease-out both; }
+.animate-slideUp { animation: slideUp .6s ease-out both; }
+.animate-floatY { animation: floatY 6s ease-in-out infinite; }
+
+body { font-family: "Outfit", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+html {
+  scroll-behavior: smooth;
+}

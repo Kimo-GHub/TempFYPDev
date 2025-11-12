@@ -24,9 +24,18 @@ export default function UserDashboard() {
           accounts_limit: 3,
         });
         if (ignore) return;
-        setKpis(data?.kpis ?? []);
-        setRecent(data?.recent ?? []);
-        setTopAccounts(data?.top_accounts ?? []);
+        // remove the "Active Users" KPI
+        const filteredKpis = (data?.kpis ?? []).filter(k =>
+         !/active\s*users/i.test(k?.label ?? k?.name ?? "")
+          );
+
+            setKpis(filteredKpis);
+            setRecent(data?.recent ?? []);
+            setTopAccounts(data?.top_accounts ?? []);
+        //if u want to make active users appear again uncomment the bottom 3 lines of code and delete everything from line 27 la 34
+        //setKpis(data?.kpis ?? []);
+        //setRecent(data?.recent ?? []);
+        //setTopAccounts(data?.top_accounts ?? []);
       } catch (e) {
         if (ignore) return;
         setErr(e?.message || "Failed to load dashboard");

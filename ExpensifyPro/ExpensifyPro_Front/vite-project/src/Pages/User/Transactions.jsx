@@ -430,7 +430,10 @@ export default function Transactions() {
               </div>
               <div>
                 <label className="block text-gray-700 mb-1">Currency</label>
-                <input value={addForm.currency} onChange={(e) => setAddForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0,3) }))} className="w-full rounded-xl border border-gray-300 px-3 py-2" />
+                <input value={addForm.currency}
+                readOnly
+                aria-readonly="true"
+                onChange={(e) => setAddForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0,3) }))} className="w-full rounded-xl border border-gray-300 px-3 py-2" />
               </div>
               <div>
                 <label className="block text-gray-700 mb-1">Date</label>
@@ -486,7 +489,11 @@ export default function Transactions() {
               </div>
               <div>
                 <label className="block text-gray-700 mb-1">Currency</label>
-                <input value={editForm.currency} onChange={(e) => setEditForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0,3) }))} className="w-full rounded-xl border border-gray-300 px-3 py-2" />
+                <input value={editForm.currency} 
+                readOnly
+                aria-readonly="true"
+                onChange={(e) => setEditForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0,3) }))} className="w-full rounded-xl border border-gray-300 px-3 py-2" />
+
               </div>
               <div>
                 <label className="block text-gray-700 mb-1">Date</label>

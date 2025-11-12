@@ -1,5 +1,5 @@
 /* RecentTransactions.jsx */
-export default function RecentTransactions({ items = [], loading = false }) {
+export default function RecentTransactions({ items = [], loading = false, showUser = false }) {
   const fmtDate = (iso) =>
     iso
       ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
@@ -20,6 +20,7 @@ export default function RecentTransactions({ items = [], loading = false }) {
             <tr className="text-left text-gray-500">
               <th className="py-2">Date</th>
               <th className="py-2">Description</th>
+              {showUser && <th className="py-2">User</th>}
               <th className="py-2">Account</th>
               <th className="py-2 text-right">Amount</th>
             </tr>
@@ -27,9 +28,9 @@ export default function RecentTransactions({ items = [], loading = false }) {
           <tbody>
             {loading && items.length === 0 && (
               <>
-                <tr><td colSpan={4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
-                <tr><td colSpan={4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
-                <tr><td colSpan={4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
+                <tr><td colSpan={showUser ? 5 : 4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
+                <tr><td colSpan={showUser ? 5 : 4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
+                <tr><td colSpan={showUser ? 5 : 4} className="py-6"><div className="h-5 animate-pulse rounded bg-gray-100" /></td></tr>
               </>
             )}
 
@@ -41,6 +42,7 @@ export default function RecentTransactions({ items = [], loading = false }) {
                 <tr key={t.id} className="border-t">
                   <td className="py-2">{fmtDate(t.date)}</td>
                   <td className="py-2">{t.description || "-"}</td>
+                  {showUser && (<td className="py-2">{t.user_name || t.user || "-"}</td>)}
                   <td className="py-2">{t.account || "-"}</td>
                   <td className={`py-2 text-right ${color}`}>
                     {sign}{fmtMoney(t.amount, t.currency || "USD")}
@@ -51,7 +53,7 @@ export default function RecentTransactions({ items = [], loading = false }) {
 
             {!loading && items.length === 0 && (
               <tr>
-                <td className="py-6 text-center text-gray-500" colSpan={4}>
+                <td className="py-6 text-center text-gray-500" colSpan={showUser ? 5 : 4}>
                   No transactions yet.
                 </td>
               </tr>

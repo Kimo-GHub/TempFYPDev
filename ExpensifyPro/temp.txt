@@ -25,7 +25,6 @@ export default function Transactions() {
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [usersMap, setUsersMap] = useState(new Map());
 
   // Debounced search (keeps input snappy)
   useEffect(() => { setSearchInput(filters.q || ""); }, []);
@@ -44,19 +43,6 @@ export default function Transactions() {
         if (ignore) return;
         setRows(res?.results ?? []);
         setInfo(res?.info ?? { current_page: 1, total_pages: 1, total_items: 0 });
-        // Refresh users (lightweight) when results change
-        const ids = [...new Set((res?.results || []).map((t) => t.user_id).filter(Boolean))];
-        if (ids.length) {
-          const map = new Map(usersMap);
-          await Promise.all(ids.map(async (id) => {
-            if (map.has(id)) return;
-            try {
-              const u = await apiService.getUserById(id);
-              map.set(id, u?.name || u?.email || `#${id}`);
-            } catch {}
-          }));
-          if (!ignore) setUsersMap(map);
-        }
       } catch (e) {
         if (ignore) return;
         setErr(e?.message || "Failed to load transactions");
@@ -163,7 +149,6 @@ export default function Transactions() {
                     <th className="py-2">ID</th>
                     <th className="py-2">Date</th>
                     <th className="py-2">Description</th>
-                    <th className="py-2">User</th>
                     <th className="py-2">Type</th>
                     <th className="py-2">Amount</th>
                     <th className="py-2">Currency</th>
@@ -180,7 +165,6 @@ export default function Transactions() {
                       <td className="py-2">{t.id}</td>
                       <td className="py-2">{fmtDate(t.date)}</td>
                       <td className="py-2">{t.description || "-"}</td>
-                      <td className="py-2">{usersMap.get(t.user_id) || t.user_id || "-"}</td>
                       <td className="py-2">
                         <span
                           className="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -203,7 +187,7 @@ export default function Transactions() {
                   ))}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="py-6 text-center text-gray-500">No transactions found.</td>
+                      <td colSpan={11} className="py-6 text-center text-gray-500">No transactions found.</td>
                     </tr>
                   )}
                 </tbody>

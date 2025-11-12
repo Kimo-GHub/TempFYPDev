@@ -502,9 +502,11 @@ export default function Accounts() {
                 <label className="block text-gray-700 mb-1">Currency</label>
                 <input
                   value={addForm.currency}
+                  readOnly
                   onChange={(e) => setAddForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0,3) }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2"
                   placeholder="USD"
+                  aria-readonly="true"
                 />
               </div>
               <div>

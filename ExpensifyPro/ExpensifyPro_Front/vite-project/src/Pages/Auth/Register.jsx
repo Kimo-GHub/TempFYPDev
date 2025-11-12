@@ -45,7 +45,7 @@ export default function Register() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Full Name (optional)</label>
+            <label className="block text-sm text-gray-700 mb-1">Full Name</label>
             <input
               name="name"
               value={form.name}

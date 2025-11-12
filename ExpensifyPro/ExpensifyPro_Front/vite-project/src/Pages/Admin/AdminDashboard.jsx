@@ -25,8 +25,31 @@ export default function AdminDashboard() {
         });
         if (ignore) return;
         setKpis(data?.kpis ?? []);
-        setRecent(data?.recent ?? []);
         setTopAccounts(data?.top_accounts ?? []);
+
+        // Enrich recent transactions with user names using the full transactions API
+        const recent = data?.recent ?? [];
+        let recentWithUsers = recent;
+        try {
+          const txRes = await apiService.getTransactions({ page: 1, page_size: Math.max(1, recent.length) });
+          const txs = txRes?.results ?? [];
+          const ids = [...new Set(txs.map((t) => t.user_id).filter(Boolean))];
+          const nameById = {};
+          await Promise.all(
+            ids.map(async (id) => {
+              try {
+                const u = await apiService.getUserById(id);
+                nameById[id] = u?.name || u?.email || `#${id}`;
+              } catch {}
+            })
+          );
+          const nameByTxId = {};
+          txs.forEach((t) => { nameByTxId[t.id] = nameById[t.user_id] || `#${t.user_id}`; });
+          recentWithUsers = recent.map((r) => ({ ...r, user_name: nameByTxId[r.id] || "-" }));
+        } catch {
+          // fallback silently
+        }
+        setRecent(recentWithUsers);
       } catch (e) {
         if (ignore) return;
         setErr(e?.message || "Failed to load dashboard");
@@ -66,7 +89,7 @@ export default function AdminDashboard() {
       {/* Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <RecentTransactions items={recent} loading={loading} />
+          <RecentTransactions items={recent} loading={loading} showUser={true} />
         </div>
         <div className="lg:col-span-1">
           <TopAccounts items={topAccounts} loading={loading} currency="USD" />

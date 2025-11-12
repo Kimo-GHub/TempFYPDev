@@ -73,6 +73,17 @@ export default function Transactions() {
     return () => { ignore = true; };
   }, [filters.page, filters.page_size, filters.q, filters.type, filters.account_id, filters.date_from, filters.date_to, filters.user_id]);
 
+  // Local refetch helper to reload current page without changing filters
+  const refetch = async () => {
+    try {
+      const res = await apiService.getTransactions(filters);
+      setRows(res?.results ?? []);
+      setInfo(res?.info ?? { current_page: 1, total_pages: 1, total_items: 0 });
+    } catch (e) {
+      setErr(e?.message || "Failed to load transactions");
+    }
+  };
+
   const pages = useMemo(() => {
     const arr = [];
     const start = Math.max(1, info.current_page - 2);
@@ -129,8 +140,8 @@ export default function Transactions() {
       } catch { /* ignore balance errors */ }
       setAddOpen(false);
       setAddForm({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
-      // refresh
-      setFilters((f) => ({ ...f }));
+      // refresh list in-place
+      await refetch();
     } catch (e) {
       setErr(e?.message || "Failed to create transaction");
     } finally {
@@ -181,7 +192,7 @@ export default function Transactions() {
         await applyTxEffect(payload, +1);
       } catch { /* ignore balance errors */ }
       setEditing(null);
-      setFilters((f) => ({ ...f }));
+      await refetch();
     } catch (e) {
       setErr(e?.message || "Failed to update transaction");
     } finally {
@@ -201,8 +212,11 @@ export default function Transactions() {
         try { await applyTxEffect(old, -1); } catch {}
       }
       const isLast = rows.length === 1 && info.current_page > 1;
-      setFilters((f) => ({ ...f, page: isLast ? info.current_page - 1 : info.current_page }));
-      if (!isLast) setFilters((f) => ({ ...f }));
+      if (isLast) {
+        setFilters((f) => ({ ...f, page: info.current_page - 1 }));
+      } else {
+        await refetch();
+      }
     } catch (e) {
       setErr(e?.message || "Failed to delete transaction");
     } finally {

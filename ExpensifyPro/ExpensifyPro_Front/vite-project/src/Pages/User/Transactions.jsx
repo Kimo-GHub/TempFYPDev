@@ -16,7 +16,8 @@ export default function Transactions() {
   // Data
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
-  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", type: undefined, account_id: undefined, date_from: "", date_to: "" });
+  const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; } })();
+  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", type: undefined, account_id: undefined, date_from: "", date_to: "", user_id: currentUserId });
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -36,7 +37,7 @@ export default function Transactions() {
   useEffect(() => {
     (async () => {
       try {
-        const acc = await apiService.getAccounts({ page: 1, page_size: 100 });
+        const acc = await apiService.getAccounts({ page: 1, page_size: 100, user_id: currentUserId });
         setAccounts(acc?.results ?? []);
       } catch {
         setAccounts([]);
@@ -70,7 +71,7 @@ export default function Transactions() {
       }
     })();
     return () => { ignore = true; };
-  }, [filters.page, filters.page_size, filters.q, filters.type, filters.account_id, filters.date_from, filters.date_to]);
+  }, [filters.page, filters.page_size, filters.q, filters.type, filters.account_id, filters.date_from, filters.date_to, filters.user_id]);
 
   const pages = useMemo(() => {
     const arr = [];
@@ -100,7 +101,6 @@ export default function Transactions() {
   const [addOpen, setAddOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [addForm, setAddForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
-  const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; } })();
 
   const onCreate = async () => {
     if (!addForm.type) return;

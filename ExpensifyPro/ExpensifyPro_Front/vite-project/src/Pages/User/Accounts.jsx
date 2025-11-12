@@ -11,9 +11,10 @@ const TYPE_LABELS = {
 };
 
 export default function Accounts() {
+  const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; } })();
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
-  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "" });
+  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", user_id: currentUserId });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -55,7 +56,7 @@ export default function Accounts() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.page, filters.page_size, filters.q, filters.type]);
+  }, [filters.page, filters.page_size, filters.q, filters.type, filters.user_id]);
 
   const onChangePage = (page) => {
     if (page < 1 || page > info.total_pages) return;
@@ -98,10 +99,6 @@ export default function Accounts() {
   const [addOpen, setAddOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", type: "bank", currency: "USD", balance: "", is_default: false });
-
-  const currentUserId = (() => {
-    try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; }
-  })();
 
   const onCreate = async () => {
     if (!addForm.name.trim()) { setErr("Name is required"); return; }
@@ -206,7 +203,7 @@ export default function Accounts() {
     setHistoryRows([]);
     setHistoryLoading(true);
     try {
-      const res = await apiService.getTransactions({ account_id: account.id, page: 1, page_size: 10 });
+      const res = await apiService.getTransactions({ account_id: account.id, user_id: currentUserId, page: 1, page_size: 10 });
       setHistoryRows(res?.results ?? []);
     } catch {
       setHistoryRows([]);

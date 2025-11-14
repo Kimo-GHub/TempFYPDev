@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
+import {
+  PROJECT_WORKFLOW_STATUS,
+  PROJECT_WORKFLOW_STORAGE_KEY,
+  getWorkflowMap,
+  updateWorkflowEntry,
+} from "../../utils/projectWorkflow";
 
 const currencyFmt = (value, currency = "USD") =>
   new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(value || 0));
@@ -38,6 +44,17 @@ export default function AdminProjects() {
   const [viewing, setViewing] = useState(null);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetRows, setBudgetRows] = useState([]);
+  const [workflowMap, setWorkflowMap] = useState(() => getWorkflowMap());
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.key === PROJECT_WORKFLOW_STORAGE_KEY) {
+        setWorkflowMap(getWorkflowMap());
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   useEffect(() => {
     setSearchInput(filters.q || "");
@@ -105,6 +122,25 @@ export default function AdminProjects() {
     if (!editForm.user) return accounts;
     return accounts.filter((acc) => Number(acc.user_id) === Number(editForm.user));
   }, [accounts, editForm.user]);
+
+  const applyWorkflowUpdate = (projectId, updater) => {
+    const next = updateWorkflowEntry(projectId, updater);
+    setWorkflowMap(next);
+  };
+
+  const projectLookup = useMemo(() => {
+    const result = new Map();
+    rows.forEach((project) => result.set(String(project.id), project));
+    return result;
+  }, [rows]);
+
+  const pendingFinalizations = useMemo(
+    () =>
+      Object.entries(workflowMap).filter(
+        ([, entry]) => entry && entry.status === PROJECT_WORKFLOW_STATUS.SUBMITTED
+      ),
+    [workflowMap]
+  );
 
   const onChangePage = (page) => {
     if (page < 1 || page > info.total_pages) return;
@@ -252,6 +288,26 @@ export default function AdminProjects() {
     } finally {
       setBudgetsLoading(false);
     }
+  };
+
+  const handleApproveFinalize = (projectId) => {
+    applyWorkflowUpdate(projectId, (entry = {}) => ({
+      ...entry,
+      status: PROJECT_WORKFLOW_STATUS.APPROVED,
+      reviewedAt: new Date().toISOString(),
+      reviewerDecision: "approved",
+    }));
+  };
+
+  const handleRejectFinalize = (projectId) => {
+    const note = window.prompt("Add a note for the user before rejecting?", "") || "";
+    applyWorkflowUpdate(projectId, (entry = {}) => ({
+      ...entry,
+      status: PROJECT_WORKFLOW_STATUS.REJECTED,
+      reviewedAt: new Date().toISOString(),
+      reviewerDecision: "rejected",
+      reviewNote: note,
+    }));
   };
 
   const renderFormFields = (state, setState, accountOptions, includeBudget = false) => (
@@ -480,6 +536,55 @@ export default function AdminProjects() {
                   Next
                 </button>
               </div>
+            </div>
+            <div className="mt-6 rounded-2xl border border-emerald-100 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800">Pending finalizations</h3>
+                  <p className="text-xs text-gray-500">Approve or reject project completion requests sent by users.</p>
+                </div>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  {pendingFinalizations.length}
+                </span>
+              </div>
+              {pendingFinalizations.length === 0 ? (
+                <div className="py-4 text-sm text-gray-500">No requests waiting for review.</div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {pendingFinalizations.map(([projectId, entry]) => {
+                    const project = projectLookup.get(projectId);
+                    return (
+                      <div key={projectId} className="rounded-2xl border border-gray-200 p-4 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-gray-800">
+                              {project?.name || entry.projectName || `Project #${projectId}`}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Submitted {entry?.submittedAt ? new Date(entry.submittedAt).toLocaleString() : "recently"}
+                              {(project?.code || entry?.projectCode) && ` • Code: ${project?.code || entry?.projectCode}`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleRejectFinalize(projectId)}
+                              className="rounded-xl border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleApproveFinalize(projectId)}
+                              className="rounded-xl border border-emerald-200 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-50"
+                            >
+                              Approve
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}

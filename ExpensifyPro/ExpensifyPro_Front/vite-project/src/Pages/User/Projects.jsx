@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
+import {
+  PROJECT_WORKFLOW_STATUS,
+  PROJECT_WORKFLOW_STORAGE_KEY,
+  getWorkflowMap,
+  updateWorkflowEntry,
+} from "../../utils/projectWorkflow";
 
 const TASK_STATUS_META = {
   todo: { label: "To do", badge: "bg-gray-100 text-gray-700" },
@@ -15,6 +21,21 @@ const TASK_COLORS = [
   { value: "#E0F2FE", name: "Sky" },
 ];
 
+const WORKFLOW_BADGES = {
+  [PROJECT_WORKFLOW_STATUS.SUBMITTED]: {
+    label: "Pending approval",
+    className: "bg-amber-50 text-amber-700 border border-amber-200",
+  },
+  [PROJECT_WORKFLOW_STATUS.REJECTED]: {
+    label: "Changes requested",
+    className: "bg-red-50 text-red-700 border border-red-200",
+  },
+  [PROJECT_WORKFLOW_STATUS.APPROVED]: {
+    label: "Finished",
+    className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  },
+};
+
 const taskFormTemplate = () => ({
   title: "",
   description: "",
@@ -22,6 +43,7 @@ const taskFormTemplate = () => ({
   status: "todo",
   color: TASK_COLORS[0].value,
   attachments: [],
+  completed: false,
 });
 
 const readFileAsDataUrl = (file) =>
@@ -58,6 +80,8 @@ export default function Projects() {
   const [viewing, setViewing] = useState(null);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetRows, setBudgetRows] = useState([]);
+
+  const [workflowMap, setWorkflowMap] = useState(() => getWorkflowMap());
 
   const storageKey = currentUserId ? `exp_proj_tasks_${currentUserId}` : null;
   const [tasksByProject, setTasksByProject] = useState({});
@@ -141,6 +165,16 @@ export default function Projects() {
   }, [tasksByProject, storageKey, tasksLoaded]);
 
   useEffect(() => {
+    const handler = (event) => {
+      if (event.key === PROJECT_WORKFLOW_STORAGE_KEY) {
+        setWorkflowMap(getWorkflowMap());
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  useEffect(() => {
     if (!viewing) return;
     setTaskForm(taskFormTemplate());
     setTaskError("");
@@ -148,7 +182,17 @@ export default function Projects() {
     setTaskTab("create");
   }, [viewing?.id]);
 
-  const getTasksForProject = (projectId) => tasksByProject[String(projectId)] ?? [];
+  const getTasksForProject = (projectId) => (tasksByProject[String(projectId)] ?? []).map((task) => ({
+    completed: false,
+    ...task,
+  }));
+
+  const workflowEntryFor = (projectId) => workflowMap[String(projectId)] || null;
+
+  const applyWorkflowUpdate = (projectId, updater) => {
+    const next = updateWorkflowEntry(projectId, updater);
+    setWorkflowMap(next);
+  };
 
   const updateTasksForProject = (projectId, updater) => {
     const key = String(projectId);
@@ -176,6 +220,7 @@ export default function Projects() {
       status: taskForm.status || "todo",
       color: taskForm.color || TASK_COLORS[0].value,
       attachments: taskForm.attachments || [],
+      completed: false,
     };
     updateTasksForProject(viewing.id, (current) => [payload, ...current]);
     setTaskForm(taskFormTemplate());
@@ -222,6 +267,25 @@ export default function Projects() {
   const handleTaskDelete = (projectId, taskId) => {
     updateTasksForProject(projectId, (current) => current.filter((task) => task.id !== taskId));
   };
+  const handleToggleTaskCompleted = (projectId, taskId) => {
+    updateTasksForProject(projectId, (current) =>
+      current.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
+
+  const handleFinalizeProject = () => {
+    if (!viewing) return;
+    applyWorkflowUpdate(viewing.id, () => ({
+      status: PROJECT_WORKFLOW_STATUS.SUBMITTED,
+      submittedAt: new Date().toISOString(),
+      submittedBy: currentUserId,
+      projectId: viewing.id,
+      projectName: viewing.name,
+      projectCode: viewing.code,
+    }));
+  };
 
   const onView = async (project) => {
     setViewing(project);
@@ -241,6 +305,95 @@ export default function Projects() {
     value,
     label: meta.label,
   }));
+
+  const projectTasks = viewing ? getTasksForProject(viewing.id) : [];
+  const completedTaskCount = projectTasks.filter((task) => task.completed).length;
+  const projectWorkflowEntry = viewing ? workflowEntryFor(viewing.id) : null;
+  const projectWorkflowStatus = projectWorkflowEntry?.status || PROJECT_WORKFLOW_STATUS.ACTIVE;
+  const allTasksCompleted = projectTasks.length > 0 && completedTaskCount === projectTasks.length;
+  const canRequestFinalize =
+    projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.ACTIVE || projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.REJECTED;
+  const finalizeDisabled =
+    !allTasksCompleted ||
+    projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.SUBMITTED ||
+    projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.APPROVED;
+  const finalizeButtonLabel = projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.REJECTED ? "Resubmit for review" : "Finalize project";
+  const projectWorkflowMessage = (() => {
+    switch (projectWorkflowStatus) {
+      case PROJECT_WORKFLOW_STATUS.SUBMITTED:
+        return "Submitted for admin review. We will notify you once the project is approved.";
+      case PROJECT_WORKFLOW_STATUS.REJECTED:
+        return "Admin requested additional changes. Update the project and resubmit when ready.";
+      case PROJECT_WORKFLOW_STATUS.APPROVED:
+        return "Admin approved this project. It is now part of your finished work.";
+      default:
+        return "Mark every task as finished before sending the project for admin review.";
+    }
+  })();
+  const workflowReviewNote = projectWorkflowEntry?.reviewNote;
+
+  const renderProjectCard = (project) => {
+    const projectTasks = getTasksForProject(project.id);
+    const completedCount = projectTasks.filter((task) => task.completed).length;
+    const workflowEntry = workflowEntryFor(project.id);
+    const workflowStatus = workflowEntry?.status || PROJECT_WORKFLOW_STATUS.ACTIVE;
+    const workflowBadge = WORKFLOW_BADGES[workflowStatus];
+
+    return (
+      <div key={project.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b bg-gradient-to-r from-indigo-50 to-purple-50 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-base font-semibold">{project.name}</div>
+              {project.code && <div className="text-xs text-gray-500">Code: {project.code}</div>}
+            </div>
+            <div className="flex flex-col items-end gap-1 text-xs">
+              <span
+                className={`rounded-lg px-2 py-0.5 ${project.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
+              >
+                {project.is_active ? "Active" : "Archived"}
+              </span>
+              {workflowBadge && <span className={`rounded-lg px-2 py-0.5 ${workflowBadge.className}`}>{workflowBadge.label}</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col justify-between p-4 text-sm text-gray-600">
+          <div className="space-y-3">
+            {project.description && <p className="text-gray-700 line-clamp-3">{project.description}</p>}
+            <div className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              {projectTasks.length === 0 ? (
+                "No personal tasks yet"
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span>{projectTasks.length} tasks</span>
+                  <span className="font-medium text-gray-700">
+                    {completedCount}/{projectTasks.length} complete
+                  </span>
+                </div>
+              )}
+            </div>
+            {workflowStatus === PROJECT_WORKFLOW_STATUS.REJECTED && workflowEntry?.reviewNote && (
+              <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                Admin notes: {workflowEntry.reviewNote}
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex items-center justify-end">
+            <button onClick={() => onView(project)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
+              View details
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const finishedProjects = rows.filter(
+    (project) => (workflowEntryFor(project.id)?.status || PROJECT_WORKFLOW_STATUS.ACTIVE) === PROJECT_WORKFLOW_STATUS.APPROVED
+  );
+  const activeProjects = rows.filter(
+    (project) => (workflowEntryFor(project.id)?.status || PROJECT_WORKFLOW_STATUS.ACTIVE) !== PROJECT_WORKFLOW_STATUS.APPROVED
+  );
 
   return (
     <div className="space-y-4">
@@ -281,54 +434,27 @@ export default function Projects() {
           <div className="py-8 text-center text-sm text-gray-500">No projects assigned to you yet.</div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.map((project) => {
-                const projectTasks = getTasksForProject(project.id);
-                const completedTasks = projectTasks.filter((task) => task.status === "done").length;
-                return (
-                  <div
-                    key={project.id}
-                    className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-                  >
-                    <div className="border-b bg-gradient-to-r from-indigo-50 to-purple-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-base font-semibold">{project.name}</div>
-                          {project.code && <div className="text-xs text-gray-500">Code: {project.code}</div>}
-                        </div>
-                        <span
-                          className={`rounded-lg px-2 py-0.5 text-xs ${
-                            project.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {project.is_active ? "Active" : "Archived"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-1 flex-col justify-between p-4 text-sm text-gray-600">
-                      <div className="space-y-3">
-                        {project.description && <p className="text-gray-700 line-clamp-3">{project.description}</p>}
-                        <div className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                          {projectTasks.length === 0 ? (
-                            "No personal tasks yet"
-                          ) : (
-                            <div className="flex items-center justify-between">
-                              <span>{projectTasks.length} tasks</span>
-                              <span className="font-medium text-gray-700">{completedTasks}/{projectTasks.length} complete</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-4 flex items-center justify-end">
-                        <button onClick={() => onView(project)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
-                          View details
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <section>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">Active projects</h2>
+              </div>
+              {activeProjects.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-500">No active projects on this page.</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{activeProjects.map(renderProjectCard)}</div>
+              )}
+            </section>
+
+            <section className="mt-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">Finished projects</h2>
+              </div>
+              {finishedProjects.length === 0 ? (
+                <div className="py-4 text-sm text-gray-500">No finished projects yet.</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{finishedProjects.map(renderProjectCard)}</div>
+              )}
+            </section>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
               <div className="text-gray-600">
@@ -443,6 +569,11 @@ export default function Projects() {
                     ))}
                   </div>
                 </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {projectTasks.length === 0
+                    ? "No personal tasks yet."
+                    : `Progress: ${completedTaskCount}/${projectTasks.length} tasks finished`}
+                </div>
                 {taskTab === "create" && (
                   <div className="mt-4 space-y-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-sm shadow-inner">
                     <div className="grid gap-4 lg:grid-cols-3">
@@ -556,15 +687,16 @@ export default function Projects() {
 
                 {taskTab === "list" && (
                   <div className="mt-4 space-y-3">
-                    {getTasksForProject(viewing.id).length === 0 ? (
-                      <div className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-gray-500">
-                        You have not added any tasks for this project yet.
-                      </div>
-                    ) : (
-                      getTasksForProject(viewing.id).map((task) => {
+                {projectTasks.length === 0 ? (
+                  <div className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-gray-500">
+                    You have not added any tasks for this project yet.
+                  </div>
+                ) : (
+                  projectTasks.map((task) => {
                         const meta = TASK_STATUS_META[task.status] || TASK_STATUS_META.todo;
                         const taskColor = task.color || TASK_COLORS[0].value;
                         const attachments = Array.isArray(task.attachments) ? task.attachments : [];
+                        const isCompleted = !!task.completed;
                         return (
                           <div
                             key={task.id}
@@ -583,7 +715,13 @@ export default function Projects() {
                                   )}
                                 </div>
                               </div>
-                              <span className={`rounded-full px-3 py-0.5 text-xs ${meta.badge}`}>{meta.label}</span>
+                              <span
+                                className={`rounded-full px-3 py-0.5 text-xs ${
+                                  isCompleted ? "bg-emerald-600/10 text-emerald-700 border border-emerald-200" : meta.badge
+                                }`}
+                              >
+                                {isCompleted ? "Finished" : meta.label}
+                              </span>
                             </div>
                             {task.description && <p className="mt-2 text-sm text-gray-700">{task.description}</p>}
                             {attachments.length > 0 && (
@@ -606,37 +744,75 @@ export default function Projects() {
                                 </div>
                               </div>
                             )}
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                              <select
-                                value={task.status}
-                                onChange={(e) => handleTaskStatusChange(viewing.id, task.id, e.target.value)}
-                                className="rounded-xl border border-gray-300 px-2 py-1"
-                              >
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                            <select
+                              value={task.status}
+                              onChange={(e) => handleTaskStatusChange(viewing.id, task.id, e.target.value)}
+                              className="rounded-xl border border-gray-300 px-2 py-1"
+                            >
                                 {taskStatusOptions.map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>
                                 ))}
                               </select>
-                              <button
-                                onClick={() => handleTaskDelete(viewing.id, task.id)}
-                                className="rounded-xl border border-red-200 px-3 py-1 text-red-600 hover:bg-red-50"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        );
+                          <button
+                            onClick={() => handleTaskDelete(viewing.id, task.id)}
+                            className="rounded-xl border border-red-200 px-3 py-1 text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => handleToggleTaskCompleted(viewing.id, task.id)}
+                            className={`rounded-xl border px-3 py-1 ${
+                              isCompleted
+                                ? "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            }`}
+                          >
+                            {isCompleted ? "Mark active" : "Mark finished"}
+                          </button>
+                        </div>
+                      </div>
+                    );
                       })
                     )}
                   </div>
                 )}
+                <div className="mt-5 rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">Project hand-off</div>
+                      <p className="text-xs text-gray-600">{projectWorkflowMessage}</p>
+                      {projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.REJECTED && workflowReviewNote && (
+                        <p className="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">{workflowReviewNote}</p>
+                      )}
+                    </div>
+                    {canRequestFinalize && (
+                      <button
+                        onClick={handleFinalizeProject}
+                        disabled={finalizeDisabled}
+                        className={`rounded-xl px-4 py-2 text-sm font-semibold text-white ${
+                          finalizeDisabled ? "bg-indigo-200" : "bg-indigo-600 hover:bg-indigo-700"
+                        }`}
+                      >
+                        {finalizeButtonLabel}
+                      </button>
+                    )}
+                  </div>
+                  {projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.SUBMITTED && (
+                    <p className="mt-2 text-xs text-amber-700">You will be notified once the admin team reviews this submission.</p>
+                  )}
+                  {projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.APPROVED && (
+                    <p className="mt-2 text-xs text-emerald-700">Admin approved this project. It now lives under Finished projects.</p>
+                  )}
+                </div>
                 <div className="mt-5 flex items-center justify-end">
-                <button onClick={() => setViewing(null)} className="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
-                  Done
-                </button>
+                  <button onClick={() => setViewing(null)} className="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+                    Done
+                  </button>
+                </div>
               </div>
-            </div>
             </div>
           </div>
         </div>

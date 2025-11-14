@@ -4,6 +4,7 @@ import {
   Users,
   CreditCard,
   Wallet,
+  FolderKanban,
   BarChart3,
   Settings,
   LogOut,
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/transactions", label: "Transactions", icon: CreditCard },
   { to: "/admin/accounts", label: "Accounts", icon: Wallet },
+  { to: "/admin/projects", label: "Projects", icon: FolderKanban },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/arima", label: "Forecasts", icon: BarChart3 },
 ];

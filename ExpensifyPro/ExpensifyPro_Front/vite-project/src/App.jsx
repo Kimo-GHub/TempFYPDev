@@ -12,6 +12,7 @@ import AdminDashboard from "./Pages/Admin/AdminDashboard";
 import AdminUsers from "./Pages/Admin/Users";
 import AdminTransactions from "./Pages/Admin/Transactions";
 import AdminAccounts from "./Pages/Admin/Accounts";
+import AdminProjects from "./Pages/Admin/AdminProjects";
 import Reports from "./Pages/Admin/Reports";
 import Arima from "./Pages/Admin/Arima";
 
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="users" element={<AdminUsers />} />
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="accounts" element={<AdminAccounts />} />
+        <Route path="projects" element={<AdminProjects />} />
         <Route path="reports" element={<Reports />} />
         <Route path="arima" element={<Arima />} />
       </Route>

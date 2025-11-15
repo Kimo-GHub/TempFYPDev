@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1600" height="1200" viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3f7fb"/>
+      <stop offset="100%" stop-color="#eef5ff"/>
+    </linearGradient>
+    <path id="wave" d="M-200 0 C 100 80 300 -80 600 0 S 1100 80 1400 0 S 1900 -80 2200 0" fill="none" stroke="#8bd4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+  </defs>
+  <rect width="1600" height="1200" fill="url(#bg)"/>
+  <g transform="translate(0 150)">
+    <use href="#wave"/>
+    <use href="#wave" transform="translate(0 80)" opacity="0.5"/>
+    <use href="#wave" transform="translate(0 160)" opacity="0.4"/>
+    <use href="#wave" transform="translate(0 240)" opacity="0.3"/>
+    <use href="#wave" transform="translate(0 320)" opacity="0.25"/>
+    <use href="#wave" transform="translate(0 400)" opacity="0.22"/>
+    <use href="#wave" transform="translate(0 480)" opacity="0.2"/>
+    <use href="#wave" transform="translate(0 560)" opacity="0.18"/>
+    <use href="#wave" transform="translate(0 640)" opacity="0.16"/>
+  </g>
+</svg>

@@ -182,6 +182,14 @@ export default function Projects() {
     setTaskTab("create");
   }, [viewing?.id]);
 
+  useEffect(() => {
+    if (!viewing) return;
+    const entry = workflowEntryFor(viewing.id);
+    if ((entry?.status || PROJECT_WORKFLOW_STATUS.ACTIVE) === PROJECT_WORKFLOW_STATUS.APPROVED) {
+      setTaskTab("list");
+    }
+  }, [viewing?.id, workflowMap]);
+
   const getTasksForProject = (projectId) => (tasksByProject[String(projectId)] ?? []).map((task) => ({
     completed: false,
     ...task,
@@ -284,6 +292,8 @@ export default function Projects() {
       projectId: viewing.id,
       projectName: viewing.name,
       projectCode: viewing.code,
+      projectDescription: viewing.description,
+      tasksSnapshot: projectTasks,
     }));
   };
 
@@ -310,6 +320,7 @@ export default function Projects() {
   const completedTaskCount = projectTasks.filter((task) => task.completed).length;
   const projectWorkflowEntry = viewing ? workflowEntryFor(viewing.id) : null;
   const projectWorkflowStatus = projectWorkflowEntry?.status || PROJECT_WORKFLOW_STATUS.ACTIVE;
+  const isFinishedProject = projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.APPROVED;
   const allTasksCompleted = projectTasks.length > 0 && completedTaskCount === projectTasks.length;
   const canRequestFinalize =
     projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.ACTIVE || projectWorkflowStatus === PROJECT_WORKFLOW_STATUS.REJECTED;
@@ -394,6 +405,13 @@ export default function Projects() {
   const activeProjects = rows.filter(
     (project) => (workflowEntryFor(project.id)?.status || PROJECT_WORKFLOW_STATUS.ACTIVE) !== PROJECT_WORKFLOW_STATUS.APPROVED
   );
+
+  const tabOptions = isFinishedProject
+    ? [{ key: "list", label: "My list" }]
+    : [
+        { key: "create", label: "Create task" },
+        { key: "list", label: "My list" },
+      ];
 
   return (
     <div className="space-y-4">
@@ -552,10 +570,7 @@ export default function Projects() {
                     <span className="text-xs text-gray-500">Tasks are saved locally per project.</span>
                   </div>
                   <div className="flex gap-2 rounded-full border border-indigo-200 bg-indigo-50 p-1 text-sm font-medium">
-                    {[
-                      { key: "create", label: "Create task" },
-                      { key: "list", label: "My list" },
-                    ].map((tab) => (
+                    {tabOptions.map((tab) => (
                       <button
                         key={tab.key}
                         type="button"
@@ -574,7 +589,7 @@ export default function Projects() {
                     ? "No personal tasks yet."
                     : `Progress: ${completedTaskCount}/${projectTasks.length} tasks finished`}
                 </div>
-                {taskTab === "create" && (
+                {!isFinishedProject && taskTab === "create" && (
                   <div className="mt-4 space-y-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-sm shadow-inner">
                     <div className="grid gap-4 lg:grid-cols-3">
                       <div className="lg:col-span-2">

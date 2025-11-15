@@ -45,6 +45,7 @@ export default function AdminProjects() {
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetRows, setBudgetRows] = useState([]);
   const [workflowMap, setWorkflowMap] = useState(() => getWorkflowMap());
+  const [expandedRequestId, setExpandedRequestId] = useState(null);
 
   useEffect(() => {
     const handler = (event) => {
@@ -553,6 +554,8 @@ export default function AdminProjects() {
                 <div className="mt-4 space-y-3">
                   {pendingFinalizations.map(([projectId, entry]) => {
                     const project = projectLookup.get(projectId);
+                    const tasksSnapshot = Array.isArray(entry?.tasksSnapshot) ? entry.tasksSnapshot : [];
+                    const isExpanded = expandedRequestId === projectId;
                     return (
                       <div key={projectId} className="rounded-2xl border border-gray-200 p-4 shadow-sm">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -567,6 +570,12 @@ export default function AdminProjects() {
                           </div>
                           <div className="flex items-center gap-2">
                             <button
+                              onClick={() => setExpandedRequestId(isExpanded ? null : projectId)}
+                              className="rounded-xl border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50"
+                            >
+                              {isExpanded ? "Hide" : "Details"}
+                            </button>
+                            <button
                               onClick={() => handleRejectFinalize(projectId)}
                               className="rounded-xl border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
                             >
@@ -580,6 +589,49 @@ export default function AdminProjects() {
                             </button>
                           </div>
                         </div>
+                        {isExpanded && (
+                          <div className="mt-4 space-y-3 border-t pt-3 text-sm text-gray-600">
+                            {(project?.description || entry?.projectDescription) && (
+                              <p className="text-xs text-gray-600">
+                                {project?.description || entry?.projectDescription}
+                              </p>
+                            )}
+                            {tasksSnapshot.length === 0 ? (
+                              <div className="rounded-xl border border-dashed px-3 py-2 text-xs text-gray-500">
+                                User submitted this project without tasks.
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  Submitted tasks
+                                </div>
+                                {tasksSnapshot.map((task) => (
+                                  <div
+                                    key={task.id}
+                                    className="rounded-2xl border border-gray-200 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
+                                      <span>{task.title}</span>
+                                      <span className="text-xs text-gray-500">{task.status}</span>
+                                    </div>
+                                    {task.description && (
+                                      <p className="mt-1 text-xs text-gray-600">{task.description}</p>
+                                    )}
+                                    {task.attachments && task.attachments.length > 0 && (
+                                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                                        {task.attachments.map((file) => (
+                                          <span key={file.id} className="rounded-full bg-gray-100 px-2 py-0.5">
+                                            {file.name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

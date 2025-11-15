@@ -139,9 +139,15 @@ export default function Home() {
 
     // main return
     return (
-        <div className="min-h-screen bg-linear-to-b from-white via-gray-50 to-gray-100 text-gray-800">
+        <div
+            className="min-h-screen bg-cover bg-center bg-fixed text-gray-800"
+            style={{
+                backgroundImage:
+                    "linear-gradient(120deg, rgba(255,255,255,0.8), rgba(15, 63, 51, 0.25)), url('/assets/BackgroundImg%202.png')"
+            }}
+        >
             {/* ===== NAVBAR ===== */}
-            <header className="sticky top-0 z-50 bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50">
+            <header className="sticky top-0 z-50 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
                 <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="my-3 flex h-14 items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 shadow-sm ring-1 ring-gray-900/5 px-3 sm:px-4">
                         {/* Brand */}

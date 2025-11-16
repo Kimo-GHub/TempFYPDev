@@ -15,6 +15,13 @@ const KIND_FILTERS = [
 ];
 
 const getVersion = () => localStorage.getItem("categories_version") || "0";
+const loadDepartments = () => {
+  try {
+    return JSON.parse(localStorage.getItem("category_departments") || "{}");
+  } catch {
+    return {};
+  }
+};
 
 export default function Categories() {
   const currentUserId = (() => {
@@ -36,17 +43,25 @@ export default function Categories() {
   const [detailTransactions, setDetailTransactions] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [deptMap, setDeptMap] = useState(loadDepartments());
+  const [deptFilter, setDeptFilter] = useState("all");
 
   useEffect(() => {
     const storageHandler = (event) => {
       if (event.key === "categories_version") setVersion(event.newValue || Date.now().toString());
+      if (event.key === "category_departments") {
+        setDeptMap(loadDepartments());
+      }
     };
     const customHandler = () => setVersion(Date.now().toString());
+    const deptHandler = () => setDeptMap(loadDepartments());
     window.addEventListener("storage", storageHandler);
     window.addEventListener("categories:updated", customHandler);
+    window.addEventListener("categoryDepartments:updated", deptHandler);
     return () => {
       window.removeEventListener("storage", storageHandler);
       window.removeEventListener("categories:updated", customHandler);
+      window.removeEventListener("categoryDepartments:updated", deptHandler);
     };
   }, []);
 
@@ -92,6 +107,21 @@ export default function Categories() {
     for (let i = start; i <= end; i += 1) list.push(i);
     return list;
   }, [info]);
+  const departmentOptions = useMemo(() => {
+    const set = new Set();
+    Object.values(deptMap).forEach((bucket) =>
+      (bucket || []).forEach((dept) => {
+        if (dept?.name) set.add(dept.name);
+      }),
+    );
+    return Array.from(set).sort();
+  }, [deptMap]);
+  const filteredRows = useMemo(() => {
+    if (deptFilter === "all") return rows;
+    return rows.filter((cat) =>
+      (deptMap[cat.id] || []).some((dept) => dept.name === deptFilter),
+    );
+  }, [rows, deptMap, deptFilter]);
 
   const fetchDetails = async (category) => {
     if (!category) return;
@@ -174,6 +204,23 @@ export default function Categories() {
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Departments
+          </span>
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 px-2 py-1 text-sm outline-none focus:border-indigo-400"
+          >
+            <option value="all">All</option>
+            {departmentOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error ? (
@@ -190,7 +237,7 @@ export default function Categories() {
               className="h-44 animate-pulse rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200"
             />
           ))
-          : rows.map((category) => (
+          : filteredRows.map((category) => (
             <article
               key={category.id}
               onClick={() => {
@@ -226,6 +273,20 @@ export default function Categories() {
                   Category ID: <span className="font-mono text-slate-700">{category.id}</span>
                 </p>
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(deptMap[category.id] || []).length ? (
+                  deptMap[category.id].map((dept, idx) => (
+                    <span
+                      key={`${dept.name}-${idx}`}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
+                    >
+                      {dept.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-400">No departments</span>
+                )}
+              </div>
             </article>
           ))}
       </div>
@@ -235,6 +296,13 @@ export default function Categories() {
           <p className="text-lg font-semibold text-slate-700">No categories yet</p>
           <p className="mt-2 text-sm">
             Your admin hasn’t created any categories. Reach out if you need one added.
+          </p>
+        </div>
+      ) : !loading && rows.length && !filteredRows.length ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center text-slate-500">
+          <p className="text-sm">
+            No categories match the selected department filter. Choose another department or reset
+            to “All”.
           </p>
         </div>
       ) : null}

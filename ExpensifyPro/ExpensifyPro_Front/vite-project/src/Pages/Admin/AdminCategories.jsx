@@ -634,6 +634,7 @@ export default function AdminCategories() {
                       });
                       next[deptModal.id] = bucket;
                       localStorage.setItem("category_departments", JSON.stringify(next));
+                      window.dispatchEvent(new Event("categoryDepartments:updated"));
                       setDeptMap(next);
                       setDeptForm({ name: "", notes: "" });
                       setDeptSaving(false);

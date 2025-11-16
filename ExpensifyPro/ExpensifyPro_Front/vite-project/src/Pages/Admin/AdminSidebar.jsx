@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   X,
+  Tags,
 } from "lucide-react";
 
 /**
@@ -22,6 +23,7 @@ const navItems = [
   { to: "/admin/transactions", label: "Transactions", icon: CreditCard },
   { to: "/admin/accounts", label: "Accounts", icon: Wallet },
   { to: "/admin/projects", label: "Projects", icon: FolderKanban },
+  { to: "/admin/categories", label: "Categories", icon: Tags },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/arima", label: "Forecasts", icon: BarChart3 },
 ];

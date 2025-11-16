@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
+import useCategories from "../../hooks/useCategories";
 
 const COLORS = {
   income: "text-emerald-700",
@@ -108,10 +109,18 @@ export default function Transactions() {
   const fmtDate = (iso) =>
     iso ? new Date(iso).toLocaleString(undefined, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-";
 
+  const { categories, categoriesMap } = useCategories();
+
   // Create modal
   const [addOpen, setAddOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [addForm, setAddForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
+  const [addForm, setAddForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
+
+  useEffect(() => {
+    if (addForm.type === "transfer" && addForm.category) {
+      setAddForm((f) => ({ ...f, category: "" }));
+    }
+  }, [addForm.type]);
 
   const onCreate = async () => {
     if (!addForm.type) return;
@@ -119,6 +128,7 @@ export default function Transactions() {
     if (!addForm.account) { setErr("Select an account"); return; }
     if (!addForm.date) { setErr("Select a date/time"); return; }
     if (addForm.type === "transfer" && !addForm.to_account) { setErr("Select a destination account"); return; }
+    if (addForm.type !== "transfer" && !addForm.category) { setErr("Select a category"); return; }
 
     if (!currentUserId) { setErr("Missing user session"); return; }
     setCreating(true); setErr("");
@@ -132,6 +142,7 @@ export default function Transactions() {
         user: currentUserId,
         account: Number(addForm.account),
         to_account: addForm.type === "transfer" ? Number(addForm.to_account) : undefined,
+        category: addForm.type === "transfer" ? undefined : Number(addForm.category),
       };
       await apiService.createTransaction(payload);
       // Adjust account balances (client-side convenience)
@@ -139,7 +150,7 @@ export default function Transactions() {
         await applyTxEffect(payload, +1);
       } catch { /* ignore balance errors */ }
       setAddOpen(false);
-      setAddForm({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
+      setAddForm({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
       // refresh list in-place
       await refetch();
     } catch (e) {
@@ -151,9 +162,15 @@ export default function Transactions() {
 
   // Edit/Delete
   const [editing, setEditing] = useState(null); // transaction row
-  const [editForm, setEditForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "" });
+  const [editForm, setEditForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  useEffect(() => {
+    if (editForm.type === "transfer" && editForm.category) {
+      setEditForm((f) => ({ ...f, category: "" }));
+    }
+  }, [editForm.type]);
 
   const onOpenEdit = (t) => {
     setEditing(t);
@@ -165,6 +182,7 @@ export default function Transactions() {
       date: t.date ? new Date(t.date).toISOString().slice(0,16) : "",
       account: t.account_id || "",
       to_account: t.to_account_id || "",
+      category: t.category_id || "",
     });
   };
 
@@ -174,6 +192,7 @@ export default function Transactions() {
     if (!editForm.account) { setErr("Select an account"); return; }
     if (!editForm.date) { setErr("Select a date/time"); return; }
     if (editForm.type === "transfer" && !editForm.to_account) { setErr("Select a destination account"); return; }
+    if (editForm.type !== "transfer" && !editForm.category) { setErr("Select a category"); return; }
     setSaving(true); setErr("");
     try {
       const payload = {
@@ -184,6 +203,7 @@ export default function Transactions() {
         date: new Date(editForm.date).toISOString(),
         account: Number(editForm.account),
         to_account: editForm.type === "transfer" ? Number(editForm.to_account) : undefined,
+        category: editForm.type === "transfer" ? undefined : Number(editForm.category),
       };
       await apiService.updateTransaction(editing.id, payload);
       // apply diff: inverse old, then new
@@ -388,7 +408,15 @@ export default function Transactions() {
                         <td className={`py-2 text-right ${color}`}>{sign}{fmtMoney(t.amount, t.currency || pageCurrency)}</td>
                         <td className="py-2">{t.currency || pageCurrency}</td>
                         <td className="py-2">{t.project_id || "-"}</td>
-                        <td className="py-2">{t.category_id || "-"}</td>
+                        <td className="py-2">
+                          {t.category_id ? (
+                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                              {categoriesMap[t.category_id]?.name || `Category ${t.category_id}`}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Unassigned</span>
+                          )}
+                        </td>
                         <td className="py-2">{tidy(t.status) || "-"}</td>
                         <td className="py-2">
                           <div className="flex items-center justify-end gap-2">
@@ -401,7 +429,7 @@ export default function Transactions() {
                   })}
                   {rows.length === 0 && (
                     <tr>
-                      <td className="py-6 text-center text-gray-500" colSpan={9}>No transactions found.</td>
+                      <td className="py-6 text-center text-gray-500" colSpan={10}>No transactions found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -469,6 +497,29 @@ export default function Transactions() {
                   </select>
                 </div>
               )}
+              {addForm.type !== "transfer" && (
+                <div>
+                  <label className="block text-gray-700 mb-1">Category</label>
+                  <select
+                    value={addForm.category}
+                    onChange={(e) => setAddForm((f) => ({ ...f, category: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2"
+                    disabled={!categories.length}
+                  >
+                    <option value="">
+                      {categories.length ? "Select category" : "Ask your admin to create categories"}
+                    </option>
+                    {categories
+                      .filter((cat) => cat.kind === (addForm.type === "income" ? "income" : "expense"))
+                      .map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400">Managed by your admin</p>
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="block text-gray-700 mb-1">Description</label>
                 <input value={addForm.description} onChange={(e) => setAddForm((f) => ({ ...f, description: e.target.value }))} className="w-full rounded-xl border border-gray-300 px-3 py-2" placeholder="Optional" />
@@ -527,6 +578,29 @@ export default function Transactions() {
                     <option value="">Select destination</option>
                     {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
+                </div>
+              )}
+              {editForm.type !== "transfer" && (
+                <div>
+                  <label className="block text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2"
+                    disabled={!categories.length}
+                  >
+                    <option value="">
+                      {categories.length ? "Select category" : "Ask your admin to create categories"}
+                    </option>
+                    {categories
+                      .filter((cat) => cat.kind === (editForm.type === "income" ? "income" : "expense"))
+                      .map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400">Managed by your admin</p>
                 </div>
               )}
               <div className="sm:col-span-2">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiService } from "../../api";
+import useCategories from "../../hooks/useCategories";
 
 const STATUS_FILTERS = [
   { value: "all", label: "All budgets" },
@@ -32,6 +33,7 @@ const emptyForm = {
   warn_at_percent: "",
   is_active: true,
   type: DEFAULT_BUDGET_TYPE,
+  category: "",
 };
 
 const fmtMoney = (value, currency = "USD") =>
@@ -103,6 +105,14 @@ export default function Budgets() {
   const [accounts, setAccounts] = useState([]);
   const [projects, setProjects] = useState([]);
   const [budgetTypes, setBudgetTypes] = useState(() => loadBudgetTypes());
+  const { categories } = useCategories();
+  const categoriesMap = useMemo(() => {
+    const map = new Map();
+    (categories || []).forEach((cat) => {
+      map.set(cat.id, cat);
+    });
+    return map;
+  }, [categories]);
   const [reloadKey, setReloadKey] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [usageLoading, setUsageLoading] = useState(false);
@@ -405,6 +415,7 @@ export default function Budgets() {
         period_end: createForm.period_end || undefined,
         warn_at_percent: createForm.warn_at_percent ? Number(createForm.warn_at_percent) : undefined,
         is_active: !!createForm.is_active,
+        category: createForm.category ? Number(createForm.category) : undefined,
       });
       if (created?.id) assignBudgetType(created.id, createForm.type);
       setCreateOpen(false);
@@ -432,6 +443,7 @@ export default function Budgets() {
       warn_at_percent: budget.warn_at_percent ?? "",
       is_active: !!budget.is_active,
       type: getBudgetType(budget.id),
+      category: budget.category_id ?? budget.category ?? "",
     });
     setFormError("");
   };
@@ -461,6 +473,7 @@ export default function Budgets() {
         period_end: editForm.period_end || null,
         warn_at_percent: editForm.warn_at_percent ? Number(editForm.warn_at_percent) : null,
         is_active: !!editForm.is_active,
+        category: editForm.category ? Number(editForm.category) : null,
       });
       assignBudgetType(editing.id, editForm.type);
       setEditing(null);
@@ -592,6 +605,27 @@ export default function Budgets() {
           ))}
         </select>
       </div>
+      <div>
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Category
+        </label>
+        <select
+          value={state.category}
+          onChange={(event) => setState((prev) => ({ ...prev, category: event.target.value }))}
+          className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200"
+          disabled={!categories.length}
+        >
+          <option value="">
+            {categories.length ? "No category" : "Ask your admin to add categories"}
+          </option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name} ({cat.kind === "income" ? "Income" : "Expense"})
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-slate-400">Categories are managed by your admin.</p>
+      </div>
       <div className="md:col-span-2">
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Period
@@ -683,6 +717,7 @@ export default function Budgets() {
           const typeLabel = isIncome ? "Income goal" : "Expense cap";
           const usageHint = isIncome ? "Aim to reach this amount." : "Stay underneath this amount.";
           const actualLabel = isIncome ? "Recorded" : "Spent";
+          const categoryData = categoriesMap.get(budget.category_id ?? budget.category);
           const usageData = getUsageData(budget.id);
           const hasScope = usageData.hasScope !== false;
           const actualValue = usageData.actual || 0;
@@ -756,6 +791,12 @@ export default function Budgets() {
                   <dt>Amount</dt>
                   <dd className="font-semibold text-slate-900">
                     {fmtMoney(budget.amount, summary.currency)}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Category</dt>
+                  <dd className="font-medium text-slate-800">
+                    {categoryData ? categoryData.name : "Not set"}
                   </dd>
                 </div>
                 <div className="flex justify-between">

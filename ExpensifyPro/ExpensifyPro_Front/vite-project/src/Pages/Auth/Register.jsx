@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiService } from "../../api";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const isValidEmail = (value) => emailRegex.test((value || "").trim());
+
 export default function Register() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -9,12 +12,18 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setEmailTouched(true);
     if (!name || !email || !password) {
       setError("All fields are required.");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError("Enter a valid work email (example@company.com).");
       return;
     }
     try {
@@ -78,16 +87,22 @@ export default function Register() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Work email</label>
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100">
+                <div
+                  className={`rounded-2xl border ${emailTouched && email && !isValidEmail(email) ? "border-red-400" : "border-slate-200"} bg-white px-3 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100`}
+                >
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouched(true)}
                     placeholder="finance@company.com"
                     className="w-full bg-transparent px-2 py-2 text-sm text-slate-900 outline-none"
                     required
                   />
                 </div>
+                {emailTouched && email && !isValidEmail(email) && (
+                  <p className="text-xs text-red-500">Enter a valid work email (name@company.com).</p>
+                )}
               </div>
 
               <div className="space-y-1.5">

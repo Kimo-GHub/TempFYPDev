@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import useCategories from "../../hooks/useCategories";
 
 const COLORS = {
@@ -12,6 +15,13 @@ const tidy = (s) => (s ? s[0].toUpperCase() + s.slice(1) : "-");
 const fmtMoney = (v, currency = "USD") =>
   new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 })
     .format(Number(v || 0));
+const fmtFullMoney = (v, currency = "USD") =>
+  new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(v || 0));
 
 export default function Transactions() {
   // Data
@@ -117,6 +127,24 @@ export default function Transactions() {
   const [addForm, setAddForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [excelRows, setExcelRows] = useState([]);
+  const [excelErrors, setExcelErrors] = useState([]);
+  const [excelProcessing, setExcelProcessing] = useState(false);
+  const [excelNotice, setExcelNotice] = useState("");
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptForms, setReceiptForms] = useState([]);
+  const [receiptProcessing, setReceiptProcessing] = useState(false);
+  const [receiptNotice, setReceiptNotice] = useState("");
+
+  useEffect(() => {
+    const closeDropdowns = () => {
+      setImportOpen(false);
+      setExportOpen(false);
+    };
+    document.addEventListener("click", closeDropdowns);
+    return () => document.removeEventListener("click", closeDropdowns);
+  }, []);
 
   useEffect(() => {
     if (addForm.type === "transfer" && addForm.category) {
@@ -280,6 +308,272 @@ export default function Transactions() {
     try { localStorage.setItem("accounts:refresh", String(Date.now())); } catch {}
   };
 
+  const resolveAccountId = (value) => {
+    if (!value) return null;
+    const stringValue = String(value).trim().toLowerCase();
+    const byId = accounts.find((a) => String(a.id) === stringValue);
+    if (byId) return byId.id;
+    const byName = accounts.find(
+      (a) => (a.name || "").trim().toLowerCase() === stringValue,
+    );
+    return byName?.id || null;
+  };
+
+  const resolveCategoryId = (value) => {
+    if (!value) return null;
+    const stringValue = String(value).trim().toLowerCase();
+    const byId = categories.find((c) => String(c.id) === stringValue);
+    if (byId) return byId.id;
+    const byName = categories.find(
+      (c) => (c.name || "").trim().toLowerCase() === stringValue,
+    );
+    return byName?.id || null;
+  };
+
+  const handleExcelOption = (e) => {
+    e.stopPropagation();
+    setImportOpen(false);
+    setExcelRows([]);
+    setExcelErrors([]);
+    setExcelNotice("");
+    setExcelModalOpen(true);
+  };
+
+  const handleReceiptOption = (e) => {
+    e.stopPropagation();
+    setImportOpen(false);
+    setReceiptForms([]);
+    setReceiptNotice("");
+    setReceiptModalOpen(true);
+  };
+
+  const handleExcelFile = (file) => {
+    if (!file) return;
+    setExcelNotice(`Parsing "${file.name}"...`);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        setExcelRows(json);
+        setExcelErrors([]);
+        setExcelNotice(`Loaded ${json.length} row(s). Review and import.`);
+      } catch (err) {
+        setExcelNotice("Unable to read workbook. Please check the template.");
+        setExcelRows([]);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const processExcelRows = async () => {
+    if (!excelRows.length) {
+      setExcelNotice("Upload an Excel file first.");
+      return;
+    }
+    setExcelProcessing(true);
+    const errors = [];
+    let success = 0;
+    for (let i = 0; i < excelRows.length; i += 1) {
+      const row = excelRows[i];
+      const typeRaw = String(row.type || row.Type || "").trim().toLowerCase();
+      if (!["income", "expense", "transfer"].includes(typeRaw)) {
+        errors.push({ row: i + 2, message: "Invalid type (income/expense/transfer)" });
+        continue;
+      }
+      const accountValue =
+        row.account ||
+        row.Account ||
+        row.account_name ||
+        row["Account Name"] ||
+        "";
+      const accountId = resolveAccountId(accountValue);
+      if (!accountId) {
+        errors.push({ row: i + 2, message: "Account not found" });
+        continue;
+      }
+      let toAccountId = null;
+      if (typeRaw === "transfer") {
+        const toValue =
+          row.to_account || row["To Account"] || row.destination_account || "";
+        toAccountId = resolveAccountId(toValue);
+        if (!toAccountId) {
+          errors.push({ row: i + 2, message: "Transfer requires destination account" });
+          continue;
+        }
+      }
+      const categoryValue =
+        row.category || row.Category || row.category_name || row["Category Name"];
+      const categoryId =
+        typeRaw === "transfer" ? null : resolveCategoryId(categoryValue);
+      if (typeRaw !== "transfer" && !categoryId) {
+        errors.push({ row: i + 2, message: "Category not found" });
+        continue;
+      }
+      const amount = Number(row.amount || row.Amount || 0);
+      if (!amount || Number.isNaN(amount)) {
+        errors.push({ row: i + 2, message: "Amount is required" });
+        continue;
+      }
+      const currency = (row.currency || row.Currency || "USD").toUpperCase();
+      const dateValue = row.date || row.Date;
+      const parsedDate = dateValue ? new Date(dateValue) : null;
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+        errors.push({ row: i + 2, message: "Date is required" });
+        continue;
+      }
+      const payload = {
+        type: typeRaw,
+        amount,
+        currency,
+        description: row.description || row.Description || undefined,
+        date: parsedDate.toISOString(),
+        user: currentUserId,
+        account: accountId,
+        to_account: typeRaw === "transfer" ? toAccountId : undefined,
+        category: typeRaw === "transfer" ? undefined : categoryId,
+      };
+      try {
+        await apiService.createTransaction(payload);
+        success += 1;
+      } catch (err) {
+        errors.push({ row: i + 2, message: err?.message || "Failed to save row" });
+      }
+    }
+    setExcelErrors(errors);
+    setExcelProcessing(false);
+    if (!errors.length) {
+      setExcelNotice(`Imported ${success} row(s) successfully.`);
+      setExcelModalOpen(false);
+      await refetch();
+    } else {
+      setExcelNotice(`Imported ${success} row(s). ${errors.length} error(s) require attention.`);
+    }
+  };
+
+  const handleReceiptFiles = (files) => {
+    if (!files?.length) return;
+    const newForms = [];
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        newForms.push({
+          id: `${file.name}-${Date.now()}`,
+          name: file.name,
+          preview: event.target.result,
+          type: "expense",
+          amount: "",
+          date: new Date().toISOString().slice(0, 16),
+          account: "",
+          description: "",
+        });
+        setReceiptForms((prev) => [...prev, ...newForms]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const updateReceiptForm = (formId, key, value) => {
+    setReceiptForms((prev) =>
+      prev.map((form) => (form.id === formId ? { ...form, [key]: value } : form)),
+    );
+  };
+
+  const processReceiptForms = async () => {
+    if (!receiptForms.length) {
+      setReceiptNotice("Upload receipt images first.");
+      return;
+    }
+    setReceiptProcessing(true);
+    let success = 0;
+    const errors = [];
+    for (const form of receiptForms) {
+      if (!form.amount || Number.isNaN(Number(form.amount))) {
+        errors.push(`${form.name}: missing amount`);
+        continue;
+      }
+      if (!form.account) {
+        errors.push(`${form.name}: select an account`);
+        continue;
+      }
+      const payload = {
+        type: form.type,
+        amount: Number(form.amount),
+        currency: "USD",
+        description: form.description || `Receipt import - ${form.name}`,
+        date: form.date ? new Date(form.date).toISOString() : new Date().toISOString(),
+        user: currentUserId,
+        account: Number(form.account),
+        receipt_url: form.preview,
+        category: form.type === "transfer" ? undefined : (categories[0]?.id ?? undefined),
+      };
+      try {
+        await apiService.createTransaction(payload);
+        success += 1;
+      } catch (err) {
+        errors.push(`${form.name}: ${err?.message || "Failed to import"}`);
+      }
+    }
+    setReceiptProcessing(false);
+    if (!errors.length) {
+      setReceiptNotice(`Imported ${success} receipt(s).`);
+      setReceiptForms([]);
+      setReceiptModalOpen(false);
+      await refetch();
+    } else {
+      setReceiptNotice(`Imported ${success}. Issues:\n${errors.join("\n")}`);
+    }
+  };
+
+  const handleExportExcel = () => {
+    if (!rows.length) return;
+    const worksheetData = rows.map((row) => ({
+      Date: fmtDate(row.date),
+      Description: row.description || "-",
+      Account: accountsMap.get(row.account_id) || row.account_id || "-",
+      Type: tidy(row.type),
+      Amount: row.amount,
+      Currency: row.currency || pageCurrency,
+      Category: categoriesMap[row.category_id]?.name || "Unassigned",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
+    const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "transactions.xlsx";
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    if (!rows.length) return;
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Transactions report", 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+    autoTable(doc, {
+      startY: 28,
+      head: [["Date", "Description", "Account", "Type", "Amount"]],
+      body: rows.map((row) => [
+        fmtDate(row.date),
+        row.description || "-",
+        accountsMap.get(row.account_id) || row.account_id || "-",
+        tidy(row.type),
+        fmtFullMoney(row.amount, row.currency || pageCurrency),
+      ]),
+      styles: { fontSize: 9 },
+      columnStyles: { 1: { cellWidth: 60 } },
+    });
+    doc.save("transactions.pdf");
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -319,20 +613,14 @@ export default function Transactions() {
                 <div className="absolute right-0 z-10 mt-2 w-44 rounded-2xl border border-slate-200 bg-white py-2 text-sm shadow-xl">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImportOpen(false);
-                    }}
+                    onClick={handleExcelOption}
                     className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
                   >
                     Excel (.xlsx)
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImportOpen(false);
-                    }}
+                    onClick={handleReceiptOption}
                     className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
                   >
                     Images / receipts
@@ -359,6 +647,7 @@ export default function Transactions() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setExportOpen(false);
+                      handleExportExcel();
                     }}
                     className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
                   >
@@ -369,6 +658,7 @@ export default function Transactions() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setExportOpen(false);
+                      handleExportPDF();
                     }}
                     className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
                   >
@@ -452,7 +742,7 @@ export default function Transactions() {
       {/* Table */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         {loading ? (
-          <div className="text-sm text-gray-600">Loading…</div>
+          <div className="text-sm text-gray-600">Loading...</div>
         ) : err ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{err}</div>
         ) : (
@@ -499,7 +789,7 @@ export default function Transactions() {
                         <td className="py-2">
                           <div className="flex items-center justify-end gap-2">
                             <button onClick={() => onOpenEdit(t)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">Edit</button>
-                            <button onClick={() => onDelete(t.id)} disabled={deletingId === t.id} className={`rounded-xl px-3 py-1 text-xs text-white ${deletingId === t.id ? "bg-red-300" : "bg-red-600 hover:bg-red-700"}`}>{deletingId === t.id ? "Deleting…" : "Delete"}</button>
+                            <button onClick={() => onDelete(t.id)} disabled={deletingId === t.id} className={`rounded-xl px-3 py-1 text-xs text-white ${deletingId === t.id ? "bg-red-300" : "bg-red-600 hover:bg-red-700"}`}>{deletingId === t.id ? "Deleting..." : "Delete"}</button>
                           </div>
                         </td>
                       </tr>
@@ -605,7 +895,7 @@ export default function Transactions() {
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button onClick={() => setAddOpen(false)} className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button onClick={onCreate} disabled={creating} className={`rounded-xl px-3 py-2 text-sm text-white ${creating ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}>{creating ? "Creating…" : "Create"}</button>
+              <button onClick={onCreate} disabled={creating} className={`rounded-xl px-3 py-2 text-sm text-white ${creating ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}>{creating ? "Creating..." : "Create"}</button>
             </div>
           </div>
         </div>
@@ -688,7 +978,281 @@ export default function Transactions() {
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button onClick={() => setEditing(null)} className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button onClick={onSaveEdit} disabled={saving} className={`rounded-xl px-3 py-2 text-sm text-white ${saving ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}>{saving ? "Saving…" : "Save"}</button>
+              <button onClick={onSaveEdit} disabled={saving} className={`rounded-xl px-3 py-2 text-sm text-white ${saving ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}>{saving ? "Saving..." : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excel import modal */}
+      {excelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => {
+              setExcelModalOpen(false);
+              setExcelRows([]);
+              setExcelErrors([]);
+              setExcelNotice("");
+            }}
+          />
+          <div className="relative w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Import transactions from Excel</h3>
+                <p className="text-sm text-gray-500">Use the template columns: type, amount, currency, date, account, category.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setExcelModalOpen(false);
+                  setExcelRows([]);
+                  setExcelErrors([]);
+                  setExcelNotice("");
+                }}
+                className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm">
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/60 p-4">
+                <label className="flex flex-col items-center justify-center gap-2 text-center cursor-pointer">
+                  <span className="text-sm font-medium text-gray-700">Upload .xlsx file</span>
+                  <span className="text-xs text-gray-500">Max 2MB · first sheet only</span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="sr-only"
+                    onChange={(e) => handleExcelFile(e.target.files?.[0])}
+                  />
+                </label>
+              </div>
+
+              {excelNotice && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm text-indigo-700">
+                  {excelNotice}
+                </div>
+              )}
+
+              {!!excelErrors.length && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <div className="font-medium">Issues detected:</div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {excelErrors.map((err, idx) => (
+                      <li key={`${err.row}-${idx}`}>Row {err.row}: {err.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {excelRows.length > 0 && (
+                <div className="rounded-2xl border border-gray-200">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-sm text-gray-600">
+                    <span>Preview ({Math.min(excelRows.length, 5)} of {excelRows.length} rows)</span>
+                    <span className="text-xs text-gray-400">Only first 5 rows shown</span>
+                  </div>
+                  <div className="max-h-60 overflow-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-gray-50 text-gray-500">
+                        <tr>
+                          {Object.keys(excelRows[0]).map((key) => (
+                            <th key={key} className="px-3 py-2 capitalize">{key}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {excelRows.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="border-t border-gray-100">
+                            {Object.keys(excelRows[0]).map((key) => (
+                              <td key={key} className="px-3 py-2 text-gray-700">{String(row[key] ?? "")}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setExcelModalOpen(false);
+                  setExcelRows([]);
+                  setExcelErrors([]);
+                  setExcelNotice("");
+                }}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={processExcelRows}
+                disabled={excelProcessing}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white ${excelProcessing ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}
+              >
+                {excelProcessing ? "Importing..." : "Import rows"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt import modal */}
+      {receiptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => {
+              setReceiptModalOpen(false);
+              setReceiptForms([]);
+              setReceiptNotice("");
+            }}
+          />
+          <div className="relative w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Import from receipts</h3>
+                <p className="text-sm text-gray-500">Upload receipt scans, verify the extracted data, then import.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptModalOpen(false);
+                  setReceiptForms([]);
+                  setReceiptNotice("");
+                }}
+                className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm">
+              <div
+                className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-center"
+              >
+                <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
+                  <span className="text-sm font-medium text-gray-700">Drop receipt images here</span>
+                  <span className="text-xs text-gray-500">PNG · JPG · up to 5MB</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => handleReceiptFiles(e.target.files)}
+                  />
+                </label>
+              </div>
+
+              {receiptNotice && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm text-indigo-700">
+                  {receiptNotice}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {receiptForms.map((form) => (
+                  <div key={form.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
+                      <span>{form.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReceiptForms((prev) => prev.filter((f) => f.id !== form.id))}
+                        className="text-xs text-red-500 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="mt-3 space-y-3 text-sm">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500">Type</label>
+                        <select
+                          value={form.type}
+                          onChange={(e) => updateReceiptForm(form.id, "type", e.target.value)}
+                          className="rounded-xl border border-gray-300 px-3 py-2"
+                        >
+                          <option value="expense">Expense</option>
+                          <option value="income">Addition</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500">Amount</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={form.amount}
+                          onChange={(e) => updateReceiptForm(form.id, "amount", e.target.value)}
+                          className="rounded-xl border border-gray-300 px-3 py-2"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500">Date</label>
+                        <input
+                          type="datetime-local"
+                          value={form.date}
+                          onChange={(e) => updateReceiptForm(form.id, "date", e.target.value)}
+                          className="rounded-xl border border-gray-300 px-3 py-2"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500">Account</label>
+                        <select
+                          value={form.account}
+                          onChange={(e) => updateReceiptForm(form.id, "account", e.target.value)}
+                          className="rounded-xl border border-gray-300 px-3 py-2"
+                        >
+                          <option value="">Select account</option>
+                          {accounts.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500">Description</label>
+                        <input
+                          value={form.description}
+                          onChange={(e) => updateReceiptForm(form.id, "description", e.target.value)}
+                          className="rounded-xl border border-gray-300 px-3 py-2"
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!receiptForms.length && (
+                <p className="text-center text-sm text-gray-500">Upload receipt images to review them here.</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptModalOpen(false);
+                  setReceiptForms([]);
+                  setReceiptNotice("");
+                }}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={processReceiptForms}
+                disabled={receiptProcessing}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white ${receiptProcessing ? "bg-indigo-300" : "bg-indigo-600 hover:bg-indigo-700"}`}
+              >
+                {receiptProcessing ? "Importing..." : "Import receipts"}
+              </button>
             </div>
           </div>
         </div>

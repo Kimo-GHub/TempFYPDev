@@ -1,6 +1,7 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./Pages/Home.jsx";
+import Automate from "./Pages/Automate.jsx";
 
 // Auth
 import Login from "./Pages/Auth/Login";
@@ -33,6 +34,7 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/" element={<Home />} />
+      <Route path="/automate" element={<Automate />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 

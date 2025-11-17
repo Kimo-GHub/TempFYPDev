@@ -56,6 +56,7 @@ export default function Home() {
         const parts = String(src).trim().split(/\s+/);
         return parts.slice(0, 2).map((s) => s[0]?.toUpperCase() || "").join("") || "U";
     }, [expUser]);
+    const isLoggedIn = Boolean(expUser?.id);
 
 
 
@@ -181,9 +182,15 @@ export default function Home() {
                                 </a>
                             </li>
                             <li>
-                                <a href="#contactus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                    contactus
-                                </a>
+                                {isLoggedIn ? (
+                                    <Link to="/automate" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
+                                        Automate
+                                    </Link>
+                                ) : (
+                                    <a href="#contactus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
+                                        contactus
+                                    </a>
+                                )}
                             </li>
                         </ul>
 
@@ -769,7 +776,11 @@ export default function Home() {
                                 <li><a href="#aboutus" className="hover:text-emerald-700 transition">About</a></li>
                                 <li><a href="#features" className="hover:text-emerald-700 transition">Features</a></li>
                                 <li><a href="#faq" className="hover:text-emerald-700 transition">FAQ</a></li>
-                                <li><a href="#contactus" className="hover:text-emerald-700 transition">Contact</a></li>
+                                {isLoggedIn ? (
+                                    <li><Link to="/automate" className="hover:text-emerald-700 transition">Automate</Link></li>
+                                ) : (
+                                    <li><a href="#contactus" className="hover:text-emerald-700 transition">Contact</a></li>
+                                )}
                             </ul>
                         </div>
 

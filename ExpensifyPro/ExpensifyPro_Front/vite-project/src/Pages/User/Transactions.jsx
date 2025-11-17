@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { apiService } from "../../api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -24,11 +25,12 @@ const fmtFullMoney = (v, currency = "USD") =>
   }).format(Number(v || 0));
 
 export default function Transactions() {
+  const location = useLocation();
   // Data
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
   const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; } })();
-  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", type: undefined, account_id: undefined, date_from: "", date_to: "", user_id: currentUserId });
+  const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", type: undefined, account_id: undefined, date_from: "", date_to: "", is_recurring: undefined, user_id: currentUserId });
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -57,11 +59,38 @@ export default function Transactions() {
   }, []);
 
   // Debounced search
-  useEffect(() => { setSearchInput(filters.q || ""); }, []);
   useEffect(() => {
     const t = setTimeout(() => setFilters((f) => ({ ...f, q: searchInput, page: 1 })), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const parseNumber = (value) => {
+      if (!value) return undefined;
+      const n = Number(value);
+      return Number.isNaN(n) ? undefined : n;
+    };
+    const parseRecurring = (value) => {
+      if (!value) return undefined;
+      const normalized = value.toLowerCase();
+      if (["1", "true", "yes"].includes(normalized)) return true;
+      if (["0", "false", "no"].includes(normalized)) return false;
+      return undefined;
+    };
+    const q = params.get("q") || "";
+    setFilters((prev) => ({
+      ...prev,
+      q,
+      page: 1,
+      type: params.get("type") || undefined,
+      account_id: parseNumber(params.get("account_id")),
+      date_from: params.get("date_from") || "",
+      date_to: params.get("date_to") || "",
+      is_recurring: parseRecurring(params.get("recurring")),
+    }));
+    setSearchInput(q);
+  }, [location.search]);
 
   // Fetch transactions
   useEffect(() => {
@@ -82,7 +111,7 @@ export default function Transactions() {
       }
     })();
     return () => { ignore = true; };
-  }, [filters.page, filters.page_size, filters.q, filters.type, filters.account_id, filters.date_from, filters.date_to, filters.user_id]);
+  }, [filters.page, filters.page_size, filters.q, filters.type, filters.account_id, filters.date_from, filters.date_to, filters.user_id, filters.is_recurring]);
 
   // Local refetch helper to reload current page without changing filters
   const refetch = async () => {
@@ -711,6 +740,24 @@ export default function Transactions() {
           {(filters.type ?? undefined) !== undefined && (
             <button onClick={() => setFilters((f) => ({ ...f, type: undefined, page: 1 }))} className="rounded-xl px-3 py-1.5 text-xs border border-gray-300 hover:bg-gray-50">Clear</button>
           )}
+
+          <div className="h-6 w-px bg-gray-200 mx-1" />
+          <select
+            value={filters.is_recurring === undefined ? "" : filters.is_recurring ? "true" : "false"}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFilters((f) => ({
+                ...f,
+                is_recurring: val === "" ? undefined : val === "true",
+                page: 1,
+              }));
+            }}
+            className="h-9 rounded-xl border border-gray-300 px-2 text-sm"
+          >
+            <option value="">All schedules</option>
+            <option value="true">Automations only</option>
+            <option value="false">Manual only</option>
+          </select>
 
           <div className="h-6 w-px bg-gray-200 mx-1" />
           <select

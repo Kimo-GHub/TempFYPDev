@@ -115,6 +115,8 @@ export default function Transactions() {
   const [addOpen, setAddOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [addForm, setAddForm] = useState({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (addForm.type === "transfer" && addForm.category) {
@@ -286,7 +288,7 @@ export default function Transactions() {
           <h1 className="text-2xl font-semibold">Transactions</h1>
           <p className="text-gray-600 text-sm">Review and add your transactions.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -300,12 +302,88 @@ export default function Transactions() {
           >
             {[5,10,20,50].map(n => <option key={n} value={n}>{n}/page</option>)}
           </select>
-          <button
-            onClick={() => setAddOpen(true)}
-            className="h-9 rounded-xl bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            + Add Transaction
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImportOpen((prev) => !prev);
+                  setExportOpen(false);
+                }}
+                className="h-9 rounded-xl border border-gray-300 px-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-600"
+              >
+                Import
+              </button>
+              {importOpen && (
+                <div className="absolute right-0 z-10 mt-2 w-44 rounded-2xl border border-slate-200 bg-white py-2 text-sm shadow-xl">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImportOpen(false);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
+                  >
+                    Excel (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImportOpen(false);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
+                  >
+                    Images / receipts
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExportOpen((prev) => !prev);
+                  setImportOpen(false);
+                }}
+                className="h-9 rounded-xl border border-gray-300 px-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-600"
+              >
+                Export
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 z-10 mt-2 w-44 rounded-2xl border border-slate-200 bg-white py-2 text-sm shadow-xl">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExportOpen(false);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
+                  >
+                    Excel (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExportOpen(false);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-slate-600 hover:bg-slate-50"
+                  >
+                    PDF summary
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="h-9 rounded-xl bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              + Add Transaction
+            </button>
+          </div>
         </div>
       </div>
 

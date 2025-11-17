@@ -16,6 +16,10 @@ from django.utils.timezone import now
 import pandas as pd
 import pandas as p  # (you had both; keeping as-is)
 from ninja.security import APIKeyHeader
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import numpy as np
+import pandas as pd
 
 from .models import (
     User, Account, Project, Category, Budget, Transaction, Organization, UserRole
@@ -1803,3 +1807,53 @@ def forecast(request, payload: ForecastRequest):
             ))
 
     return {"history": history, "forecast": forecast, "model_info": model_info}
+
+@api_view(['GET'])
+def forecast_recommendation(request):
+    """
+    Generate simple natural-language recommendations based on forecast data.
+    """
+
+    # TODO: Replace this with your actual forecast data
+    # Example placeholder: a list of numbers from ARIMA/Prophet
+    forecast = request.GET.get("values")
+
+    # But in your real project, you will use:
+    # forecast = get_forecast_values()  # from ARIMA / Prophet saved results
+
+    # For example, imagine Prophet/ARIMA returned:
+    # forecast_values = [120, 150, 180, 210, 250]
+
+    forecast_values = [120, 150, 180, 210, 250] 
+
+    df = pd.Series(forecast_values)
+
+    # Calculate trend
+    diff = df.diff().fillna(0)
+
+    avg_growth = diff.mean()
+    last_point = df.iloc[-1]
+    growth_percent = (avg_growth / df.iloc[0]) * 100
+
+    # Simple rule-based recommendations:
+    recommendation = ""
+
+    if avg_growth > 0:
+        recommendation += f"📈 Your expenses are increasing on average by {avg_growth:.2f} per period.\n"
+    else:
+        recommendation += f"📉 Your expenses are decreasing slightly.\n"
+
+    if growth_percent > 10:
+        recommendation += "⚠️ Warning: There is a strong upward trend. Consider adjusting your budget.\n"
+
+    if last_point > 200:
+        recommendation += "💸 The forecast suggests your expenses may become high soon.\n"
+
+    if avg_growth < 5:
+        recommendation += "👍 The growth rate is stable. No major risk detected.\n"
+
+    # Final fallback
+    if recommendation.strip() == "":
+        recommendation = "Everything seems stable in your future expense trends."
+
+    return Response({"message": recommendation})

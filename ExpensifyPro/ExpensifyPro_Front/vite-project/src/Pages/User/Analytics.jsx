@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
 import useCategories from "../../hooks/useCategories";
+import ForecastChatbot from "../../components/ForecastChatbot";
 
 const PERIODS = [
   { label: "30 days", value: 30 },

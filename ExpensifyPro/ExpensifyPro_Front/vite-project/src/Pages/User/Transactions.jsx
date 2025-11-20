@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import useCategories from "../../hooks/useCategories";
+import { useNotifications } from "../../components/NotificationContext.jsx";
 
 const COLORS = {
   income: "text-emerald-700",
@@ -26,6 +27,7 @@ const fmtFullMoney = (v, currency = "USD") =>
 
 export default function Transactions() {
   const location = useLocation();
+  const notify = useNotifications();
   // Data
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
@@ -204,14 +206,13 @@ export default function Transactions() {
         category: addForm.type === "transfer" ? undefined : Number(addForm.category),
       };
       await apiService.createTransaction(payload);
-      // Adjust account balances (client-side convenience)
       try {
         await applyTxEffect(payload, +1);
       } catch { /* ignore balance errors */ }
       setAddOpen(false);
       setAddForm({ type: "expense", amount: "", currency: "USD", description: "", date: "", account: "", to_account: "", category: "" });
-      // refresh list in-place
       await refetch();
+      notify({ type: "success", message: "Transaction added successfully." });
     } catch (e) {
       setErr(e?.message || "Failed to create transaction");
     } finally {
@@ -265,13 +266,13 @@ export default function Transactions() {
         category: editForm.type === "transfer" ? undefined : Number(editForm.category),
       };
       await apiService.updateTransaction(editing.id, payload);
-      // apply diff: inverse old, then new
       try {
         await applyTxEffect(editing, -1);
         await applyTxEffect(payload, +1);
       } catch { /* ignore balance errors */ }
       setEditing(null);
       await refetch();
+      notify({ type: "success", message: "Transaction updated." });
     } catch (e) {
       setErr(e?.message || "Failed to update transaction");
     } finally {
@@ -296,6 +297,7 @@ export default function Transactions() {
       } else {
         await refetch();
       }
+      notify({ type: "success", message: "Transaction deleted." });
     } catch (e) {
       setErr(e?.message || "Failed to delete transaction");
     } finally {

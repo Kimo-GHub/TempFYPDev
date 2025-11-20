@@ -203,7 +203,7 @@ export default function Automate() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-white">
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-white" style={{ backgroundImage: "url('/assets/BackgroundImg1.png')" }}>
       <nav className="sticky top-0 z-20 border-b border-white/60 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="text-lg font-semibold text-emerald-600">

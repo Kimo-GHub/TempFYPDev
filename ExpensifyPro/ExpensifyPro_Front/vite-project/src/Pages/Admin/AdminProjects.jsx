@@ -709,9 +709,6 @@ export default function AdminProjects() {
                 <h3 className="text-lg font-semibold">{viewing.name}</h3>
                 {viewing.code && <div className="text-xs text-gray-500">Code: {viewing.code}</div>}
               </div>
-              <button onClick={() => setViewing(null)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
-                Close
-              </button>
             </div>
             <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
               <div>

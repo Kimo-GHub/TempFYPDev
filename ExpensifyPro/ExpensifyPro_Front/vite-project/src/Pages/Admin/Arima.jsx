@@ -103,8 +103,8 @@ export default function ArimaPage() {
         <div className="col-span-2">
           <label className="block text-sm font-medium mb-1">Model</label>
           <select name="model" value={form.model} onChange={onChange} className="w-full border rounded-lg p-2">
-            <option value="arima">ARIMA</option>
-            <option value="prophet">Prophet</option>
+            <option value="arima">Long Term (stable)</option>
+            <option value="prophet">Seasonal</option>
           </select>
         </div>
 

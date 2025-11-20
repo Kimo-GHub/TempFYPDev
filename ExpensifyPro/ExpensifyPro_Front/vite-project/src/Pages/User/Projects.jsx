@@ -6,6 +6,7 @@ import {
   getWorkflowMap,
   updateWorkflowEntry,
 } from "../../utils/projectWorkflow";
+import { useNotifications } from "../../components/NotificationContext.jsx";
 
 const TASK_STATUS_META = {
   todo: { label: "To do", badge: "bg-gray-100 text-gray-700" },
@@ -61,6 +62,11 @@ const formatBytes = (bytes) => {
   return `${(bytes / 1024 ** i).toFixed(1)} ${sizes[i]}`;
 };
 
+const formatTimelineDate = (date) =>
+  date
+    ? date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+    : "";
+
 export default function Projects() {
   const currentUserId = (() => {
     try {
@@ -69,6 +75,7 @@ export default function Projects() {
       return null;
     }
   })();
+  const notify = useNotifications();
 
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
@@ -90,6 +97,48 @@ export default function Projects() {
   const [taskError, setTaskError] = useState("");
   const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [taskTab, setTaskTab] = useState("create");
+
+  const projectTimeline = useMemo(() => {
+    if (!viewing) return { start: null, end: null };
+    const startDates = [];
+    const endDates = [];
+    (budgetRows || []).forEach((budget) => {
+      if (budget.period_start) {
+        const start = new Date(budget.period_start);
+        if (!Number.isNaN(start.getTime())) startDates.push(start.getTime());
+      }
+      if (budget.period_end) {
+        const end = new Date(budget.period_end);
+        if (!Number.isNaN(end.getTime())) endDates.push(end.getTime());
+      }
+    });
+    return {
+      start: startDates.length ? new Date(Math.min(...startDates)) : null,
+      end: endDates.length ? new Date(Math.max(...endDates)) : null,
+    };
+  }, [viewing?.id, budgetRows]);
+
+  const timelineStartMs = projectTimeline.start ? projectTimeline.start.getTime() : null;
+  const timelineEndMs = projectTimeline.end ? projectTimeline.end.getTime() : null;
+  const timelineHint = (() => {
+    if (timelineStartMs !== null && timelineEndMs !== null) {
+      return `between ${formatTimelineDate(projectTimeline.start)} and ${formatTimelineDate(projectTimeline.end)}`;
+    }
+    if (timelineStartMs !== null) {
+      return `on or after ${formatTimelineDate(projectTimeline.start)}`;
+    }
+    if (timelineEndMs !== null) {
+      return `on or before ${formatTimelineDate(projectTimeline.end)}`;
+    }
+    return "";
+  })();
+  const timelineRestrictionActive = timelineStartMs !== null || timelineEndMs !== null;
+  const dueDateValueMs = taskForm.due_date ? new Date(taskForm.due_date).getTime() : null;
+  const dueDateOutsideTimeline =
+    timelineRestrictionActive &&
+    dueDateValueMs !== null &&
+    !Number.isNaN(dueDateValueMs) &&
+    ((timelineStartMs !== null && dueDateValueMs < timelineStartMs) || (timelineEndMs !== null && dueDateValueMs > timelineEndMs));
 
   useEffect(() => {
     setFilters((prev) => ({ ...prev, user_id: currentUserId }));
@@ -220,6 +269,22 @@ export default function Projects() {
       setTaskError("Task name is required");
       return;
     }
+    if (timelineRestrictionActive) {
+      if (!taskForm.due_date) {
+        setTaskError(`Select a task due date ${timelineHint}.`);
+        return;
+      }
+      const dueDate = new Date(taskForm.due_date);
+      const dueDateMs = dueDate.getTime();
+      if (Number.isNaN(dueDateMs)) {
+        setTaskError("Enter a valid due date for this project.");
+        return;
+      }
+      if ((timelineStartMs !== null && dueDateMs < timelineStartMs) || (timelineEndMs !== null && dueDateMs > timelineEndMs)) {
+        setTaskError(`Task due date must fall ${timelineHint}.`);
+        return;
+      }
+    }
     const payload = {
       id: Date.now(),
       title: taskForm.title.trim(),
@@ -233,6 +298,7 @@ export default function Projects() {
     updateTasksForProject(viewing.id, (current) => [payload, ...current]);
     setTaskForm(taskFormTemplate());
     setTaskError("");
+    notify({ type: "success", message: "Task added to project." });
   };
 
   const handleAttachmentChange = async (event) => {
@@ -270,10 +336,12 @@ export default function Projects() {
     updateTasksForProject(projectId, (current) =>
       current.map((task) => (task.id === taskId ? { ...task, status: nextStatus } : task))
     );
+    notify({ type: "success", message: "Task updated." });
   };
 
   const handleTaskDelete = (projectId, taskId) => {
     updateTasksForProject(projectId, (current) => current.filter((task) => task.id !== taskId));
+    notify({ type: "success", message: "Task removed." });
   };
   const handleToggleTaskCompleted = (projectId, taskId) => {
     updateTasksForProject(projectId, (current) =>
@@ -281,6 +349,7 @@ export default function Projects() {
         task.id === taskId ? { ...task, completed: !task.completed } : task
       )
     );
+    notify({ type: "success", message: "Task completion updated." });
   };
 
   const handleFinalizeProject = () => {
@@ -607,8 +676,15 @@ export default function Projects() {
                           type="date"
                           value={taskForm.due_date}
                           onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))}
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2"
+                          className={`w-full rounded-xl border px-3 py-2 ${
+                            dueDateOutsideTimeline ? "border-red-300 focus:border-red-400 focus:ring-red-100" : "border-gray-300"
+                          }`}
                         />
+                        {timelineRestrictionActive && (
+                          <p className={`mt-1 text-xs ${dueDateOutsideTimeline ? "text-red-600" : "text-gray-500"}`}>
+                            Tasks must have a due date {timelineHint}.
+                          </p>
+                        )}
                       </div>
                     </div>
 

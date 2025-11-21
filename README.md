@@ -1,7 +1,7 @@
-#ExpensifyPro (SPET) 
-##Guide to run ExpensifyPro:
+ExpensifyPro (SPET) 
+Guide to run ExpensifyPro:
 
--First Time Run: 
+First Time Run: 
 
 cd to the Backend
 python -m venv .venv

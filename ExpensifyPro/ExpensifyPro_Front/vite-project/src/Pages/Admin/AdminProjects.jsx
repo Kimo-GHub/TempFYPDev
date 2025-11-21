@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
+import { useNotifications } from "../../components/NotificationContext.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import {
   PROJECT_WORKFLOW_STATUS,
   PROJECT_WORKFLOW_STORAGE_KEY,
@@ -23,6 +25,7 @@ const emptyForm = {
 };
 
 export default function AdminProjects() {
+  const notify = useNotifications();
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
   const [filters, setFilters] = useState({ page: 1, page_size: 9, q: "" });
@@ -46,6 +49,7 @@ export default function AdminProjects() {
   const [budgetRows, setBudgetRows] = useState([]);
   const [workflowMap, setWorkflowMap] = useState(() => getWorkflowMap());
   const [expandedRequestId, setExpandedRequestId] = useState(null);
+  const [confirmState, setConfirmState] = useState({ open: false, targetId: null });
 
   useEffect(() => {
     const handler = (event) => {
@@ -206,6 +210,7 @@ export default function AdminProjects() {
       setAddOpen(false);
       setForm({ ...emptyForm });
       fetchProjects();
+      notify({ type: "success", message: "Project created." });
     } catch (e) {
       setErr(e?.message || "Failed to create project");
     } finally {
@@ -253,6 +258,7 @@ export default function AdminProjects() {
       await apiService.updateProject(editing.id, payload);
       setEditing(null);
       fetchProjects();
+      notify({ type: "success", message: "Project updated." });
     } catch (e) {
       setErr(e?.message || "Failed to update project");
     } finally {
@@ -260,8 +266,12 @@ export default function AdminProjects() {
     }
   };
 
-  const onDelete = async (projectId) => {
-    if (!window.confirm("Delete this project?")) return;
+  const confirmDelete = (projectId) => setConfirmState({ open: true, targetId: projectId });
+
+  const onDelete = async () => {
+    const projectId = confirmState.targetId;
+    setConfirmState({ open: false, targetId: null });
+    if (!projectId) return;
     setErr("");
     try {
       await apiService.deleteProject(projectId);
@@ -272,6 +282,7 @@ export default function AdminProjects() {
         page: isLastItem ? info.current_page - 1 : info.current_page,
       }));
       if (!isLastItem) fetchProjects();
+      notify({ type: "success", message: "Project deleted." });
     } catch (e) {
       setErr(e?.message || "Failed to delete project");
     }
@@ -417,23 +428,24 @@ export default function AdminProjects() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Projects</h1>
-          <p className="text-sm text-gray-600">Assign workstreams to users and monitor their budgets.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">Control</p>
+          <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
+          <p className="text-sm text-slate-500">Assign workstreams to users and monitor their budgets.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search projects"
-            className="h-9 w-56 rounded-xl border border-gray-300 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Search projects..."
+            className="h-10 w-56 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           />
           <select
             value={filters.page_size}
             onChange={(e) => setFilters((f) => ({ ...f, page_size: Number(e.target.value), page: 1 }))}
-            className="h-9 rounded-xl border border-gray-300 px-2 text-sm"
+            className="h-10 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           >
             {[6, 9, 12].map((n) => (
               <option key={n} value={n}>
@@ -443,7 +455,7 @@ export default function AdminProjects() {
           </select>
           <button
             onClick={openCreateModal}
-            className="h-9 rounded-xl bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
+            className="h-10 rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:-translate-y-0.5 hover:bg-emerald-500"
           >
             + New Project
           </button>
@@ -452,7 +464,7 @@ export default function AdminProjects() {
 
       {err && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm ring-1 ring-slate-100">
         {loading ? (
           <div className="py-8 text-center text-sm text-gray-600">Loading...</div>
         ) : rows.length === 0 ? (
@@ -495,7 +507,7 @@ export default function AdminProjects() {
                         Edit
                       </button>
                       <button
-                        onClick={() => onDelete(project.id)}
+                        onClick={() => confirmDelete(project.id)}
                         className="rounded-xl border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
                       >
                         Delete
@@ -648,9 +660,10 @@ export default function AdminProjects() {
           <div className="relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">New project</h3>
-              <button onClick={() => setAddOpen(false)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
+               {/* <button onClick={() => setAddOpen(false)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
                 Close
               </button>
+               */}
             </div>
             {renderFormFields(form, setForm, filteredAccounts, true)}
             <div className="mt-5 flex items-center justify-end gap-2">
@@ -677,9 +690,10 @@ export default function AdminProjects() {
           <div className="relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Edit project</h3>
-              <button onClick={() => setEditing(null)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
+             {/*  <button onClick={() => setEditing(null)} className="rounded-xl border px-3 py-1 text-xs hover:bg-gray-50">
                 Close
               </button>
+              */}
             </div>
             {renderFormFields(editForm, setEditForm, filteredEditAccounts, false)}
             <div className="mt-5 flex items-center justify-end gap-2">
@@ -764,7 +778,7 @@ export default function AdminProjects() {
             </div>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
-                onClick={() => onDelete(viewing.id)}
+                onClick={() => confirmDelete(viewing.id)}
                 className="rounded-xl border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
               >
                 Delete project
@@ -776,6 +790,17 @@ export default function AdminProjects() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete this project?"
+        message="This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={onDelete}
+        onCancel={() => setConfirmState({ open: false, targetId: null })}
+      />
     </div>
   );
 }

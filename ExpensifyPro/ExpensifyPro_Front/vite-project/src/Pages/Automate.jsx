@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiService } from "../api";
 import useCategories from "../hooks/useCategories";
+import { useNotifications } from "../components/NotificationContext.jsx";
 
 const formatMoney = (value, currency = "USD") =>
   new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
@@ -42,6 +43,7 @@ const toInputDate = (iso) => {
 
 export default function Automate() {
   const navigate = useNavigate();
+  const notify = useNotifications();
   const currentUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("exp_user") || "null");
@@ -50,6 +52,9 @@ export default function Automate() {
     }
   }, []);
   const currentUserId = currentUser?.id;
+  const isAdmin = currentUser?.role === 1;
+  const dashboardPath =
+    currentUser?.role === 1 ? "/admin" : currentUser?.role ? "/user" : "/login";
 
   const [automations, setAutomations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +62,8 @@ export default function Automate() {
 
   const [accounts, setAccounts] = useState([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -72,12 +79,23 @@ export default function Automate() {
     accounts.forEach((acc) => map.set(acc.id, acc.name));
     return map;
   }, [accounts]);
+  const selectedUserId = isAdmin ? (form.user || currentUserId || null) : currentUserId;
+  const accountsForForm = useMemo(() => {
+    if (!isAdmin) return accounts;
+    if (!selectedUserId) return [];
+    return accounts.filter((acc) => Number(acc.user_id ?? acc.user) === Number(selectedUserId));
+  }, [accounts, isAdmin, selectedUserId]);
 
   const categoriesMap = useMemo(() => {
     const map = new Map();
     categories.forEach((cat) => map.set(cat.id, cat.name));
     return map;
   }, [categories]);
+  const usersMap = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => map.set(u.id, u.name || u.email || `User ${u.id}`));
+    return map;
+  }, [users]);
 
   const loadAutomations = async () => {
     if (!currentUserId) {
@@ -92,7 +110,7 @@ export default function Automate() {
         page: 1,
         page_size: 200,
         is_recurring: true,
-        user_id: currentUserId,
+        user_id: isAdmin ? undefined : currentUserId,
       });
       setAutomations(res?.results ?? []);
     } catch (e) {
@@ -106,7 +124,11 @@ export default function Automate() {
   const loadAccounts = async () => {
     setAccountsLoading(true);
     try {
-      const res = await apiService.getAccounts({ page: 1, page_size: 200, user_id: currentUserId });
+      const res = await apiService.getAccounts({
+        page: 1,
+        page_size: 200,
+        user_id: isAdmin ? undefined : currentUserId,
+      });
       setAccounts(res?.results ?? []);
     } catch {
       setAccounts([]);
@@ -115,15 +137,29 @@ export default function Automate() {
     }
   };
 
+  const loadUsers = async () => {
+    if (!isAdmin) return;
+    setUsersLoading(true);
+    try {
+      const res = await apiService.getUsers({ page: 1, page_size: 200 });
+      setUsers(res?.results ?? []);
+    } catch {
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadAutomations();
     loadAccounts();
+    loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ ...defaultForm });
+    setForm({ ...defaultForm, user: isAdmin ? "" : currentUserId });
     setModalOpen(true);
   };
 
@@ -138,6 +174,7 @@ export default function Automate() {
       category: automation.category_id || "",
       interval: automation.recurring_interval || "monthly",
       nextRun: toInputDate(automation.next_recurring_date || automation.date),
+      user: automation.user_id || automation.user || (isAdmin ? "" : currentUserId),
     });
     setModalOpen(true);
   };
@@ -145,6 +182,11 @@ export default function Automate() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.account || !form.amount || !form.nextRun) return;
+    const ownerId = isAdmin ? form.user || currentUserId : currentUserId;
+    if (isAdmin && !ownerId) {
+      notify({ type: "error", message: "Select a user for this automation." });
+      return;
+    }
     setSaving(true);
     const payload = {
       type: form.type,
@@ -157,7 +199,7 @@ export default function Automate() {
       is_recurring: true,
       recurring_interval: form.interval,
       next_recurring_date: new Date(form.nextRun).toISOString(),
-      user: currentUserId,
+      user: ownerId,
     };
     try {
       if (editing) {
@@ -167,7 +209,7 @@ export default function Automate() {
       }
       setModalOpen(false);
       setEditing(null);
-      setForm({ ...defaultForm });
+      setForm({ ...defaultForm, user: isAdmin ? "" : currentUserId });
       await loadAutomations();
     } catch (err) {
       alert(err?.message || "Unable to save automation");
@@ -199,6 +241,7 @@ export default function Automate() {
     params.set("recurring", "1");
     if (automation.description) params.set("q", automation.description);
     if (automation.account_id) params.set("account_id", automation.account_id);
+    if (isAdmin && automation.user_id) params.set("user_id", automation.user_id);
     navigate(`/user/transactions?${params.toString()}`);
   };
 
@@ -210,7 +253,7 @@ export default function Automate() {
             ExpensifyPro
           </Link>
           <Link
-            to="/user"
+            to={dashboardPath}
             className="rounded-full border border-emerald-100 px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
           >
             Go to dashboard
@@ -230,15 +273,15 @@ export default function Automate() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 pb-24">
-        <div className="flex items-center justify-between gap-3 pb-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-500">
-              {loading ? "Loading automations..." : `${automations.length} automation${automations.length === 1 ? "" : "s"}`}
-            </p>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-          </div>
-          <button
-            onClick={openCreate}
+          <div className="flex items-center justify-between gap-3 pb-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-500">
+                {loading ? "Loading automations..." : `${automations.length} automation${automations.length === 1 ? "" : "s"}`}
+              </p>
+              {error && <p className="text-sm text-red-500">{error}</p>}
+            </div>
+            <button
+              onClick={openCreate}
             className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700"
           >
             + New automation
@@ -332,16 +375,24 @@ export default function Automate() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6 space-y-3 text-sm text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs uppercase tracking-wide text-slate-400">Next run</span>
-                      <span className="font-semibold text-slate-900">{formatDateLabel(automation.next_recurring_date)}</span>
-                    </div>
-                    {automation.category_id && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs uppercase tracking-wide text-slate-400">Category</span>
-                        <span className="font-semibold text-slate-900">{categoriesMap.get(automation.category_id) || automation.category_id}</span>
-                      </div>
+              <div className="mt-6 space-y-3 text-sm text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-slate-400">Next run</span>
+                  <span className="font-semibold text-slate-900">{formatDateLabel(automation.next_recurring_date)}</span>
+                </div>
+                {isAdmin ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wide text-slate-400">Owner</span>
+                    <span className="font-semibold text-slate-900">
+                      {usersMap.get(automation.user_id) || automation.user_id || "Unknown"}
+                    </span>
+                  </div>
+                ) : null}
+                {automation.category_id && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wide text-slate-400">Category</span>
+                    <span className="font-semibold text-slate-900">{categoriesMap.get(automation.category_id) || automation.category_id}</span>
+                  </div>
                     )}
                     {automation.last_processed && (
                       <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -409,6 +460,30 @@ export default function Automate() {
                   required
                 />
               </div>
+              {isAdmin ? (
+                <div>
+                  <label className="text-xs font-semibold text-slate-500">User</label>
+                  <select
+                    value={form.user || ""}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        user: e.target.value,
+                        account: "", // clear account when switching user
+                      }))
+                    }
+                    className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2"
+                    required
+                  >
+                    <option value="">{usersLoading ? "Loading users..." : "Select user"}</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.email || `User ${u.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
                 <label className="text-xs font-semibold text-slate-500">Currency</label>
                 <input
@@ -447,9 +522,16 @@ export default function Automate() {
                   onChange={(e) => setForm((prev) => ({ ...prev, account: e.target.value }))}
                   className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2"
                   required
+                  disabled={isAdmin && !selectedUserId}
                 >
-                  <option value="">{accountsLoading ? "Loading..." : "Select account"}</option>
-                  {accounts.map((acc) => (
+                  <option value="">
+                    {isAdmin && !selectedUserId
+                      ? "Select user first"
+                      : accountsLoading
+                      ? "Loading..."
+                      : "Select account"}
+                  </option>
+                  {accountsForForm.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.name}
                     </option>

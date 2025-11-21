@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiService } from "../../api";
 import useCategories from "../../hooks/useCategories";
+import { useNotifications } from "../../components/NotificationContext.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 
 const STATUS_FILTERS = [
   { value: "all", label: "All budgets" },
@@ -87,6 +89,7 @@ const Modal = ({ open, title, onClose, children, footer }) => {
 
 export default function Budgets() {
   const navigate = useNavigate();
+  const notify = useNotifications();
   const currentUserId = (() => {
     try {
       return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null;
@@ -128,6 +131,7 @@ export default function Budgets() {
 
   const [viewing, setViewing] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmState, setConfirmState] = useState({ open: false, targetId: null });
 
   const persistBudgetTypes = (updater) => {
     setBudgetTypes((prev) => {
@@ -421,6 +425,7 @@ export default function Budgets() {
       setCreateOpen(false);
       setCreateForm({ ...emptyForm, is_active: true });
       refreshBudgets();
+      notify({ type: "success", message: "Budget created." });
     } catch (error) {
       setFormError(error?.message || "Failed to create budget");
     } finally {
@@ -478,6 +483,7 @@ export default function Budgets() {
       assignBudgetType(editing.id, editForm.type);
       setEditing(null);
       refreshBudgets();
+      notify({ type: "success", message: "Budget updated." });
     } catch (error) {
       setFormError(error?.message || "Failed to update budget");
     } finally {
@@ -487,7 +493,6 @@ export default function Budgets() {
 
   const handleDelete = async (budgetId) => {
     if (!budgetId) return;
-    if (!window.confirm("Delete this budget? This cannot be undone.")) return;
     setDeleting(true);
     setFormError("");
     try {
@@ -496,11 +501,24 @@ export default function Budgets() {
       setEditing((prev) => (prev && prev.id === budgetId ? null : prev));
       removeBudgetType(budgetId);
       refreshBudgets();
+      notify({ type: "success", message: "Budget deleted." });
     } catch (error) {
       setFormError(error?.message || "Failed to delete budget");
     } finally {
       setDeleting(false);
     }
+  };
+
+  const confirmDelete = (budgetId) => setConfirmState({ open: true, targetId: budgetId });
+
+  const onDeleteConfirmed = () => {
+    if (!confirmState.targetId) {
+      setConfirmState({ open: false, targetId: null });
+      return;
+    }
+    const target = confirmState.targetId;
+    setConfirmState({ open: false, targetId: null });
+    handleDelete(target);
   };
 
   const renderFormFields = (state, setState) => (
@@ -1109,7 +1127,7 @@ export default function Budgets() {
               </button>
               <button
                 type="button"
-                onClick={() => handleDelete(viewing.id)}
+                onClick={() => confirmDelete(viewing.id)}
                 disabled={deleting}
                 className="rounded-2xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:bg-rose-500 disabled:opacity-50"
               >
@@ -1188,6 +1206,17 @@ export default function Budgets() {
           </div>
         ) : null}
       </Modal>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete this budget?"
+        message="This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={onDeleteConfirmed}
+        onCancel={() => setConfirmState({ open: false, targetId: null })}
+      />
     </div>
   );
 }

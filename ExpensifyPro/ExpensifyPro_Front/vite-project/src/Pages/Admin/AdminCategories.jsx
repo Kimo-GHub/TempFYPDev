@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api";
 import { bumpCategoriesVersion } from "../../hooks/useCategories";
+import { useNotifications } from "../../components/NotificationContext.jsx";
 
 const KIND_FILTERS = [
   { value: "all", label: "All" },
@@ -22,15 +23,16 @@ const loadDepartments = () => {
   }
 };
 
-const currentAdminId = (() => {
+const getCurrentAdminId = () => {
   try {
     return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null;
   } catch {
     return null;
   }
-})();
+};
 
 export default function AdminCategories() {
+  const notify = useNotifications();
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
   const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "", kind: "all" });
@@ -108,6 +110,7 @@ export default function AdminCategories() {
   };
 
   const submitCreate = async () => {
+    const currentAdminId = getCurrentAdminId();
     if (!currentAdminId) {
       setError("Missing admin user context. Please re-login.");
       return;
@@ -130,6 +133,7 @@ export default function AdminCategories() {
       setCreateOpen(false);
       setCreateForm({ ...emptyForm });
       setFilters((f) => ({ ...f }));
+      notify({ type: "success", message: "Category created." });
     } catch (e) {
       setError(e?.message || "Failed to create category");
     } finally {
@@ -169,6 +173,7 @@ export default function AdminCategories() {
       bumpCategoriesVersion();
       setEditing(null);
       setFilters((f) => ({ ...f }));
+      notify({ type: "success", message: "Category updated." });
     } catch (e) {
       setError(e?.message || "Failed to update category");
     } finally {
@@ -190,6 +195,7 @@ export default function AdminCategories() {
       bumpCategoriesVersion();
       setDeleting(null);
       setFilters((f) => ({ ...f }));
+      notify({ type: "success", message: "Category deleted." });
     } catch (e) {
       setError(e?.message || "Failed to delete category");
     } finally {

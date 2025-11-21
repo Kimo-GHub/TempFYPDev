@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiService } from "../../api"; // adjust if needed
+import { useNotifications } from "../../components/NotificationContext.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 
 const ROLE_LABELS = { 1: "Admin", 2: "Employee", 3: "Guest" };
 
@@ -13,6 +15,7 @@ function classNames(...xs) {
 }
 
 export default function Users() {
+  const notify = useNotifications();
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
   const [filters, setFilters] = useState({ page: 1, page_size: 10, q: "" });
@@ -29,6 +32,7 @@ export default function Users() {
   const [editForm, setEditForm] = useState({ name: "", email: "", role: 2, password: "" });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmState, setConfirmState] = useState({ open: false, targetId: null });
 
   // Debounce search
   const [searchInput, setSearchInput] = useState("");
@@ -87,6 +91,7 @@ export default function Users() {
       await apiService.updateUser(editing.id, payload);
       setEditing(null);
       await fetchData();
+      notify({ type: "success", message: "User updated." });
     } catch (e) {
       setErr(e?.message || "Failed to update user");
     } finally {
@@ -94,9 +99,13 @@ export default function Users() {
     }
   };
 
-  // Delete
-  const onDelete = async (id) => {
-    if (!confirm("Delete this user?")) return;
+  // Delete (custom dialog)
+  const confirmDelete = (id) => setConfirmState({ open: true, targetId: id });
+
+  const onDeleteConfirmed = async () => {
+    const id = confirmState.targetId;
+    setConfirmState({ open: false, targetId: null });
+    if (!id) return;
     setDeletingId(id);
     setErr("");
     try {
@@ -104,6 +113,7 @@ export default function Users() {
       const isLastItemOnPage = rows.length === 1 && filters.page > 1;
       setFilters((f) => ({ ...f, page: isLastItemOnPage ? f.page - 1 : f.page }));
       if (!isLastItemOnPage) fetchData();
+      notify({ type: "success", message: "User deleted." });
     } catch (e) {
       setErr(e?.message || "Failed to delete user");
     } finally {
@@ -132,6 +142,7 @@ export default function Users() {
       // refresh, keep current page unless empty
       const wasEmpty = rows.length === 0;
       if (wasEmpty) setFilters((f) => ({ ...f, page: 1 })); else await fetchData();
+      notify({ type: "success", message: "User created." });
     } catch (e) {
       setErr(e?.message || "Failed to create user");
     } finally {
@@ -154,20 +165,24 @@ export default function Users() {
   }, [info]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold">Users</h2>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">Directory</p>
+          <h2 className="text-3xl font-bold text-slate-900">Users</h2>
+          <p className="text-sm text-slate-500">Manage team members across your organization.</p>
+        </div>
         <div className="flex items-center gap-2">
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search name or email…"
-            className="h-9 w-56 rounded-xl border border-gray-300 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            className="h-10 w-56 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           />
           <select
             value={filters.page_size}
             onChange={(e) => setFilters((f) => ({ ...f, page_size: Number(e.target.value), page: 1 }))}
-            className="h-9 rounded-xl border border-gray-300 px-2 text-sm"
+            className="h-10 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           >
             {[5, 10, 20, 50].map((n) => (
               <option key={n} value={n}>{n}/page</option>
@@ -177,14 +192,14 @@ export default function Users() {
           {/* NEW: Add User button */}
           <button
             onClick={() => setAddOpen(true)}
-            className="h-9 rounded-xl bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:-translate-y-0.5 hover:bg-emerald-500"
           >
             + Add User
           </button>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm ring-1 ring-slate-100">
         {loading ? (
           <div className="text-sm text-gray-600">Loading…</div>
         ) : err ? (
@@ -220,7 +235,7 @@ export default function Users() {
                             Edit
                           </button>
                           <button
-                            onClick={() => onDelete(u.id)}
+                            onClick={() => confirmDelete(u.id)}
                             disabled={deletingId === u.id}
                             className={classNames(
                               "rounded-xl px-3 py-1 text-xs text-white",
@@ -425,6 +440,17 @@ export default function Users() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete this user?"
+        message="This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={onDeleteConfirmed}
+        onCancel={() => setConfirmState({ open: false, targetId: null })}
+      />
     </div>
   );
 }

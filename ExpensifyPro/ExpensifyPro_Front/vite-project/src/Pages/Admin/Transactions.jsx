@@ -116,20 +116,24 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       {/* Header + minimal controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold">Transactions</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">Control</p>
+          <h2 className="text-3xl font-bold text-slate-900">Transactions</h2>
+          <p className="text-sm text-slate-500">Review and explore recent activity across the workspace.</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search description…"
-            className="h-9 w-64 rounded-xl border border-gray-300 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Search description..."
+            className="h-10 w-64 rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           />
           {/* Type filter (works with search) */}
           <select
             value={filters.type}
             onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value, page: 1 }))}
-            className="h-9 rounded-xl border border-gray-300 px-2 text-sm"
+            className="h-10 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           >
             <option value="">All types</option>
             <option value="income">Income</option>
@@ -139,7 +143,7 @@ export default function Transactions() {
           <select
             value={filters.page_size}
             onChange={(e) => setFilters((f) => ({ ...f, page_size: Number(e.target.value), page: 1 }))}
-            className="h-9 rounded-xl border border-gray-300 px-2 text-sm"
+            className="h-10 rounded-2xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           >
             {[5, 10, 20, 50].map((n) => (
               <option key={n} value={n}>{n}/page</option>
@@ -149,7 +153,7 @@ export default function Transactions() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm ring-1 ring-slate-100">
         {loading ? (
           <div className="text-sm text-gray-600">Loading…</div>
         ) : err ? (
@@ -249,7 +253,7 @@ export default function Transactions() {
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Stacked bar by day */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-2 text-sm font-medium text-gray-700">Daily Totals (current page)</div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -267,7 +271,7 @@ export default function Transactions() {
         </div>
 
         {/* Donut by type */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-2 text-sm font-medium text-gray-700">Distribution by Type (current page)</div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -294,3 +298,5 @@ export default function Transactions() {
     </div>
   );
 }
+
+

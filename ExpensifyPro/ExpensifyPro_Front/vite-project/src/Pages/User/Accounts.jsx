@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Wallet, CreditCard, Banknote, Landmark, Star } from "lucide-react";
 import { apiService } from "../../api";
+import { useNotifications } from "../../components/NotificationContext.jsx";
 
 const TYPE_LABELS = {
   cash: "Cash",
@@ -11,6 +12,7 @@ const TYPE_LABELS = {
 };
 
 export default function Accounts() {
+  const notify = useNotifications();
   const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("exp_user") || "{}").id || null; } catch { return null; } })();
   const [rows, setRows] = useState([]);
   const [info, setInfo] = useState({ current_page: 1, total_pages: 1, total_items: 0 });
@@ -118,6 +120,7 @@ export default function Accounts() {
       setAddOpen(false);
       setAddForm({ name: "", type: "bank", currency: "USD", balance: "", is_default: false });
       await fetchData();
+      notify({ type: "success", message: "Account created." });
     } catch (e) {
       setErr(e?.message || "Failed to create account");
     } finally {
@@ -162,6 +165,7 @@ export default function Accounts() {
       await apiService.updateAccount(editing.id, payload);
       setEditing(null);
       await fetchData();
+      notify({ type: "success", message: "Account updated." });
     } catch (e) {
       setErr(e?.message || "Failed to update account");
     } finally {
@@ -178,6 +182,7 @@ export default function Accounts() {
       const isLastItemOnPage = rows.length === 1 && filters.page > 1;
       setFilters((f) => ({ ...f, page: isLastItemOnPage ? f.page - 1 : f.page }));
       if (!isLastItemOnPage) fetchData();
+      notify({ type: "success", message: "Account deleted." });
     } catch (e) {
       setErr(e?.message || "Failed to delete account");
     } finally {
@@ -191,6 +196,7 @@ export default function Accounts() {
     try {
       await apiService.updateAccount(id, { is_default: true });
       await fetchData();
+      notify({ type: "success", message: "Default account updated." });
     } catch (e) {
       setErr(e?.message || "Failed to change default");
     } finally {

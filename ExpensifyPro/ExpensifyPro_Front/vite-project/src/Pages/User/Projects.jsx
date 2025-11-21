@@ -425,6 +425,7 @@ export default function Projects() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-base font-semibold">{project.name}</div>
+              <div className="text-xs text-gray-500">ID: {project.id}</div>
               {project.code && <div className="text-xs text-gray-500">Code: {project.code}</div>}
             </div>
             <div className="flex flex-col items-end gap-1 text-xs">

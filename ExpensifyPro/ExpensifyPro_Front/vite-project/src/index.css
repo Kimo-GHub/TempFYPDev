@@ -16,3 +16,52 @@ body { font-family: "Outfit", ui-sans-serif, system-ui, -apple-system, Segoe UI,
 html {
   scroll-behavior: smooth;
 }
+
+.expensi-bg {
+  background:
+    radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(56, 189, 248, 0.28),
+      rgba(56, 189, 248, 0.0) 55%
+    ),
+    radial-gradient(
+      circle at 50% 20%,
+      rgba(16, 185, 129, 0.20),
+      rgba(15, 118, 110, 0.05),
+      rgba(15, 23, 42, 0.02)
+    ),
+    repeating-radial-gradient(
+      circle at center,
+      rgba(16, 185, 129, 0.06) 0,
+      rgba(16, 185, 129, 0.06) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.04) 0,
+      rgba(15, 23, 42, 0.04) 1px,
+      transparent 1px,
+      transparent 10px
+    ),
+    radial-gradient(circle at top, #ecfeff, #f8fafc 40%, #f0fdf4 100%);
+
+  background-blend-mode: soft-light, normal, soft-light, soft-light, normal;
+  filter: saturate(1.1);
+  transition: background 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .expensi-bg {
+    animation: expensi-bg-drift 22s infinite alternate ease-in-out;
+  }
+
+  @keyframes expensi-bg-drift {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    100% {
+      transform: translate3d(0, -12px, 0);
+    }
+  }
+}

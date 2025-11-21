@@ -177,9 +177,15 @@ export default function Home() {
                                 </a>
                             </li>
                             <li>
-                                <a href="#faq" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                    FAQ
-                                </a>
+                                {isLoggedIn ? (
+                                    <Link to="/expensi" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
+                                        Expensi
+                                    </Link>
+                                ) : (
+                                    <a href="#faq" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
+                                        FAQ
+                                    </a>
+                                )}
                             </li>
                             <li>
                                 {isLoggedIn ? (
@@ -775,7 +781,13 @@ export default function Home() {
                                 <li><a href="#Home" className="hover:text-emerald-700 transition">Home</a></li>
                                 <li><a href="#aboutus" className="hover:text-emerald-700 transition">About</a></li>
                                 <li><a href="#features" className="hover:text-emerald-700 transition">Features</a></li>
-                                <li><a href="#faq" className="hover:text-emerald-700 transition">FAQ</a></li>
+                                <li>
+                                    {isLoggedIn ? (
+                                        <Link to="/expensi" className="hover:text-emerald-700 transition">Expensi</Link>
+                                    ) : (
+                                        <a href="#faq" className="hover:text-emerald-700 transition">FAQ</a>
+                                    )}
+                                </li>
                                 {isLoggedIn ? (
                                     <li><Link to="/automate" className="hover:text-emerald-700 transition">Automate</Link></li>
                                 ) : (

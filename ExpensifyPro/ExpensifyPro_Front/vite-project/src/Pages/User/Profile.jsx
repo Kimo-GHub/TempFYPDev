@@ -191,6 +191,7 @@ export default function Profile() {
             {/* Meta */}
             <div className="min-w-0">
               <div className="font-medium truncate">{user.name || "Unnamed User"}</div>
+              <div className="text-[11px] text-gray-500">User ID: {user.id ?? "-"}</div>
               <div className="text-sm text-gray-600 flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 <span className="truncate">{user.email || "-"}</span>

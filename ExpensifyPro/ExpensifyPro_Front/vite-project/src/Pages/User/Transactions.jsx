@@ -336,7 +336,12 @@ export default function Transactions() {
       } catch { /* ignore */ }
       acc.balance = after; // mutate local cache for immediate UI usage
     }
-    try { localStorage.setItem("accounts:refresh", String(Date.now())); } catch {}
+    try {
+      localStorage.setItem("accounts:refresh", String(Date.now()));
+      window.dispatchEvent(new Event("accounts:refresh"));
+    } catch {
+      // ignore
+    }
   };
 
   const resolveAccountId = (value) => {
@@ -800,13 +805,14 @@ export default function Transactions() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500">
-                    <th className="py-2">Date</th>
-                    <th className="py-2">Description</th>
-                    <th className="py-2">Account</th>
-                    <th className="py-2">Type</th>
-                    <th className="py-2 text-right">Amount</th>
-                    <th className="py-2">Currency</th>
-                    <th className="py-2">Project</th>
+                      <th className="py-2">Date</th>
+                      <th className="py-2">Description</th>
+                      <th className="py-2">ID</th>
+                      <th className="py-2">Account</th>
+                      <th className="py-2">Type</th>
+                      <th className="py-2 text-right">Amount</th>
+                      <th className="py-2">Currency</th>
+                      <th className="py-2">Project</th>
                     <th className="py-2">Category</th>
                     <th className="py-2">Status</th>
                     <th className="py-2 text-right">Actions</th>
@@ -820,6 +826,7 @@ export default function Transactions() {
                       <tr key={t.id} className="border-t">
                         <td className="py-2">{fmtDate(t.date)}</td>
                         <td className="py-2">{t.description || "-"}</td>
+                        <td className="py-2 text-xs text-slate-500">#{t.id}</td>
                         <td className="py-2">{accountsMap.get(t.account_id) || t.account_id || "-"}</td>
                         <td className="py-2">{tidy(t.type)}</td>
                         <td className={`py-2 text-right ${color}`}>{sign}{fmtMoney(t.amount, t.currency || pageCurrency)}</td>

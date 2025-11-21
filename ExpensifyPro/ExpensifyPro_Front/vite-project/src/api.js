@@ -86,23 +86,34 @@ const authFetch = (url, { method = "GET", headers = {}, body } = {}) => {
 export const apiService = {
   /* ========= Auth ========= */
   // Use noAuthFetch for these (no org header required yet)
-  login: (email, password) =>
-    noAuthFetch(`${API_BASE}/auth/login/`, {
-      method: "POST",
-      body: { email, password },
-    }).then((user) => {
-      if (user && user.org_id) localStorage.setItem("org_id", String(user.org_id));
-      return user;
-    }),
+ login: (email, password) =>
+  noAuthFetch(`${API_BASE}/auth/login/`, {
+    method: "POST",
+    body: { email, password },
+  }).then((user) => {
+    if (user && user.org_id) {
+      localStorage.setItem("org_id", String(user.org_id));
+    }
+    if (user && user.id) {
+      localStorage.setItem("user_id", String(user.id));
+    }
+    return user;
+  }),
+
 
   registerAdmin: (email, password) =>
-    noAuthFetch(`${API_BASE}/auth/register_admin/`, {
-      method: "POST",
-      body: { email, password },
-    }).then((user) => {
-      if (user && user.org_id) localStorage.setItem("org_id", String(user.org_id));
-      return user;
-    }),
+  noAuthFetch(`${API_BASE}/auth/register_admin/`, {
+    method: "POST",
+    body: { email, password },
+  }).then((user) => {
+    if (user && user.org_id) {
+      localStorage.setItem("org_id", String(user.org_id));
+    }
+    if (user && user.id) {
+      localStorage.setItem("user_id", String(user.id));
+    }
+    return user;
+  }),
 
   /* ========= Users ========= */
   getUsers: (filters = {}) => {

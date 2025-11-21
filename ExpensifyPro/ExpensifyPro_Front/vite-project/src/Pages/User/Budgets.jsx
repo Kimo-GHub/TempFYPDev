@@ -786,6 +786,7 @@ export default function Budgets() {
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Budget</p>
                   <h3 className="mt-1 text-lg font-semibold text-slate-900">{budget.name}</h3>
+                  <p className="text-[11px] text-slate-400">ID: {budget.id}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span

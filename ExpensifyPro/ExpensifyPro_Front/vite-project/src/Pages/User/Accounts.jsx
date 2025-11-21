@@ -55,6 +55,17 @@ export default function Accounts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+    // listen for same-tab balance updates (Expensi, Transactions, etc.)
+  useEffect(() => {
+    const onRefresh = () => {
+      // triggers the main effect that depends on filters
+      setFilters((f) => ({ ...f }));
+    };
+
+    window.addEventListener("accounts:refresh", onRefresh);
+    return () => window.removeEventListener("accounts:refresh", onRefresh);
+  }, []);
+
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps

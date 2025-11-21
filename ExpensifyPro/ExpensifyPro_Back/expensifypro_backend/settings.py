@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "expensi",
+
 
     # Third-party
     "corsheaders",
@@ -135,3 +137,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+import os
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+EXPENSI_ENABLED = os.getenv("EXPENSI_ENABLED", "True") == "True"

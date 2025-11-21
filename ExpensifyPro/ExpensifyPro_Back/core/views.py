@@ -62,6 +62,10 @@ class OptionalOrgHeader(APIKeyHeader):
 org_auth = OptionalOrgHeader()
 api = NinjaAPI(title="ExpensifyPro API", version="1.0.0", auth=org_auth)
 
+from expensi.api import router as expensi_router
+api.add_router("/expensi", expensi_router)
+
+
 # =========================
 # Org helpers
 # =========================
@@ -107,8 +111,8 @@ def _fk_in_org_or_404(model, pk: Optional[int], org_id: int, label: str):
 
 # small helpers for response specs
 RESP_401 = {401: MessageResponse}
-RESP_STD = {400: ErrorMessages, 401: MessageResponse, 500: MessageResponse}
-RESP_MSG = {401: MessageResponse, 404: MessageResponse, 500: MessageResponse}
+RESP_STD = {400: ErrorMessages, 401: MessageResponse, 403: MessageResponse, 500: MessageResponse}
+RESP_MSG = {401: MessageResponse,  403: MessageResponse, 404: MessageResponse, 500: MessageResponse}
 
 
 # in your api module

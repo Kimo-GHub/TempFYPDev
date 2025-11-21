@@ -1,4 +1,9 @@
 
+import ExpensiPage from "./Pages/ExpensiPage.jsx";
+import ExpensiChat from "./components/ExpensiChat";
+
+
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./Pages/Home.jsx";
 import Automate from "./Pages/Automate.jsx";
@@ -31,10 +36,12 @@ import Analytics from "./Pages/User/Analytics";
 
 export default function App() {
   return (
+    <>
     <Routes>
       {/* Public */}
       <Route path="/" element={<Home />} />
       <Route path="/automate" element={<Automate />} />
+      <Route path="/expensi" element={<ExpensiPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
@@ -68,5 +75,8 @@ export default function App() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+
+    <ExpensiChat />
+    </>
   );
 }

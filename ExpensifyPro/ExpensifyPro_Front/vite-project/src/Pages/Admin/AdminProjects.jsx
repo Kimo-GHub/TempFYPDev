@@ -18,6 +18,7 @@ const emptyForm = {
   description: "",
   is_active: true,
   user: "",
+  members: [],
   account: "",
   budget_amount: "",
   start_date: "",
@@ -172,45 +173,57 @@ export default function AdminProjects() {
       setErr("Project name is required");
       return;
     }
-    if (!form.user) {
-      setErr("Assign a user to this project");
+    const memberList = (form.members || []).filter(Boolean);
+    const primaryUser = form.user || memberList[0];
+    if (!primaryUser) {
+      setErr("Assign at least one user to this project");
       return;
     }
 
     setCreating(true);
     setErr("");
     try {
-      const payload = {
+      const basePayload = {
         name: form.name.trim(),
         code: form.code?.trim() || undefined,
         description: form.description?.trim() || undefined,
         is_active: !!form.is_active,
-        user: Number(form.user),
       };
-      const created = await apiService.createProject(payload);
+      const targets = memberList.length ? memberList : [primaryUser];
 
-      if (form.budget_amount) {
-        try {
-          await apiService.createBudget({
-            name: `${payload.name} Budget`,
-            description: `Initial budget for ${payload.name}`,
-            amount: Number(form.budget_amount),
-            user: Number(form.user),
-            project: created?.id,
-            account: form.account ? Number(form.account) : undefined,
-            is_active: true,
-            period_start: form.start_date || undefined,
-            period_end: form.end_date || undefined,
-          });
-        } catch {
-          /* ignore budget failure but keep the project */
+      const createdProjects = [];
+      for (const uid of targets) {
+        const payload = { ...basePayload, user: Number(uid) };
+        const created = await apiService.createProject(payload);
+        if (created?.id) createdProjects.push(created);
+
+        // Optional budget for the first created project only (keeps behavior predictable)
+        if (createdProjects.length === 1 && form.budget_amount) {
+          try {
+            await apiService.createBudget({
+              name: `${payload.name} Budget`,
+              description: `Initial budget for ${payload.name}`,
+              amount: Number(form.budget_amount),
+              user: Number(uid),
+              project: created?.id,
+              account: form.account ? Number(form.account) : undefined,
+              is_active: true,
+              period_start: form.start_date || undefined,
+              period_end: form.end_date || undefined,
+            });
+          } catch {
+            /* ignore budget failure but keep the project */
+          }
         }
       }
 
       setAddOpen(false);
       setForm({ ...emptyForm });
       fetchProjects();
-      notify({ type: "success", message: "Project created." });
+      notify({
+        type: "success",
+        message: `Project created for ${targets.length} user${targets.length === 1 ? "" : "s"}.`,
+      });
     } catch (e) {
       setErr(e?.message || "Failed to create project");
     } finally {
@@ -227,6 +240,7 @@ export default function AdminProjects() {
       description: project.description || "",
       is_active: !!project.is_active,
       user: project.user_id || "",
+      members: [project.user_id || ""],
       account: "",
       budget_amount: "",
       start_date: "",
@@ -352,19 +366,64 @@ export default function AdminProjects() {
         </select>
       </div>
       <div className="sm:col-span-2">
-        <label className="mb-1 block text-gray-700">Assign to user</label>
-        <select
-          value={state.user}
-          onChange={(e) => setState((prev) => ({ ...prev, user: e.target.value }))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2"
-        >
-          <option value="">Select user</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name || u.email || `User ${u.id}`}
-            </option>
-          ))}
-        </select>
+        <label className="mb-1 block text-gray-700">Assign to users</label>
+        <div className="rounded-xl border border-gray-300 px-3 py-2 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {(state.members || []).filter(Boolean).map((uid) => {
+              const label = userLabel(Number(uid));
+              return (
+                <span
+                  key={uid}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                >
+                  {label}
+                  <button
+                    type="button"
+                    className="text-slate-400 hover:text-red-500"
+                    onClick={() =>
+                      setState((prev) => ({
+                        ...prev,
+                        members: (prev.members || []).filter((id) => id !== uid),
+                        user:
+                          prev.user === uid
+                            ? (prev.members || []).find((id) => id !== uid) || ""
+                            : prev.user,
+                      }))
+                    }
+                    aria-label={`Remove ${label}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+          <select
+            value=""
+            onChange={(e) => {
+              const value = e.target.value;
+              if (!value) return;
+              setState((prev) => {
+                const nextMembers = Array.from(new Set([...(prev.members || []), value]));
+                return {
+                  ...prev,
+                  members: nextMembers,
+                  user: prev.user || value,
+                };
+              });
+            }}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Add user</option>
+            {users
+              .filter((u) => !(state.members || []).includes(String(u.id)))
+              .map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name || u.email || `User ${u.id}`}
+                </option>
+              ))}
+          </select>
+        </div>
       </div>
       {includeBudget && (
         <>

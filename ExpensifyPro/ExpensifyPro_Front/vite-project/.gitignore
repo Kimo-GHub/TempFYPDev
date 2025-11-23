@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 # Environment variables
+# Ignore all dotenv files
 .env
-GEMINI_API_KEY=AIzaSyAI8BVnnGN0ICUU1hhBQjUxHD5dvLqjPBA
-EXPENSI_ENABLED=True
+*.env
+

@@ -1,3 +1,14 @@
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+// soft warning instead of killing the app
+if (!GEMINI_API_KEY) {
+  console.warn(
+    "Expensi: VITE_GEMINI_API_KEY is not set on the frontend. " +
+      "Make sure your backend has GEMINI_API_KEY configured."
+  );
+}
+
 export async function askExpensi(messages) {
   try {
     const response = await fetch("http://127.0.0.1:8000/api/expensi/chat", {

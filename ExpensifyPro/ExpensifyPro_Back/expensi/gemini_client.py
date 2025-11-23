@@ -12,7 +12,7 @@ def _get_client():
     """
     api_key = getattr(settings, "GEMINI_API_KEY", None)
     if not api_key:
-        # You can tweak this message later if you want
+       
         raise ValueError(
             "GEMINI_API_KEY is not set. Please configure it in your environment/.env."
         )

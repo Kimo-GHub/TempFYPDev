@@ -1,8 +1,10 @@
 // src/Pages/ExpensiPage.jsx
 import React, { useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ExpensiChat from "../components/ExpensiChat";
 import InteractiveBackground from "../components/InteractiveBackground";
+import MainNavbar from "../components/MainNavbar";
+import { expensiPalettes } from "../theme/expensiPalette";
 
 function getCurrentUserSafe() {
   try {
@@ -29,33 +31,31 @@ export default function ExpensiPage() {
     return null;
   }
 
-  const dashboardPath =
-    currentUser.role === 1 ? "/admin" : currentUser.role ? "/user" : "/";
+  const isAdmin = currentUser?.role === 1;
+  const palette = isAdmin ? expensiPalettes.admin : expensiPalettes.user;
+  const bgVariant = isAdmin ? "admin" : "user";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50/60 via-white to-white">
       {/* Cursor-following background */}
-      <InteractiveBackground />
+      <InteractiveBackground variant={bgVariant} />
 
       {/* Actual page content sits above background */}
       <div className="relative z-10">
-        {/* Top bar similar to Automate.jsx */}
-        <nav className="sticky top-0 z-20 border-b border-white/60 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link to="/" className="text-lg font-semibold text-emerald-600">
-              ExpensifyPro
-            </Link>
-            <Link
-              to={dashboardPath}
-              className="rounded-full border border-emerald-100 px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-            >
-              Go to dashboard
-            </Link>
-          </div>
-        </nav>
+        <MainNavbar buttonPalette={isAdmin ? undefined : palette} />
 
         <header className="mx-auto max-w-4xl px-6 py-12 text-center">
-          <span className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+          <span
+            className="inline-flex items-center rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-700"
+            style={
+              isAdmin
+                ? undefined
+                : {
+                    backgroundColor: palette.chipBg,
+                    color: palette.chipText,
+                  }
+            }
+          >
             Conversational assistant
           </span>
           <h1 className="mt-4 text-4xl font-semibold text-slate-900">
@@ -69,7 +69,7 @@ export default function ExpensiPage() {
 
         <main className="mx-auto max-w-4xl px-6 pb-16">
           {/* Full-page chat card */}
-          <ExpensiChat variant="page" />
+          <ExpensiChat variant="page" palette={palette} />
         </main>
       </div>
     </div>

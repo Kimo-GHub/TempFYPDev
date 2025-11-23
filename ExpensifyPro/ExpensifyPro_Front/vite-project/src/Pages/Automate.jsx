@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import MainNavbar from "../components/MainNavbar";
 import { apiService } from "../api";
 import useCategories from "../hooks/useCategories";
 import { useNotifications } from "../components/NotificationContext.jsx";
+import { expensiPalettes } from "../theme/expensiPalette";
 
 const formatMoney = (value, currency = "USD") =>
   new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
@@ -73,6 +75,7 @@ export default function Automate() {
   const [deleting, setDeleting] = useState(false);
 
   const { categories } = useCategories();
+  const palette = isAdmin ? expensiPalettes.admin : expensiPalettes.user;
 
   const accountsMap = useMemo(() => {
     const map = new Map();
@@ -246,23 +249,26 @@ export default function Automate() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-white" style={{ backgroundImage: "url('/assets/BackgroundImg1.png')" }}>
-      <nav className="sticky top-0 z-20 border-b border-white/60 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-lg font-semibold text-emerald-600">
-            ExpensifyPro
-          </Link>
-          <Link
-            to={dashboardPath}
-            className="rounded-full border border-emerald-100 px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-          >
-            Go to dashboard
-          </Link>
-        </div>
-      </nav>
+    <div
+      className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-white"
+      style={{
+        backgroundImage: isAdmin
+          ? "url('/assets/BackgroundImg1.png')"
+          : "url('/assets/BGPURPLE.png')",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <MainNavbar buttonPalette={isAdmin ? undefined : palette} />
 
       <header className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <span className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        <span
+          className="inline-flex items-center rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wide"
+          style={
+            isAdmin ? undefined : { backgroundColor: palette.chipBg, color: palette.chipText }
+          }
+        >
           Automation Suite
         </span>
         <h1 className="mt-5 text-4xl font-semibold text-slate-900">Automated Transactions</h1>
@@ -282,23 +288,24 @@ export default function Automate() {
             </div>
             <button
               onClick={openCreate}
-            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700"
-          >
-            + New automation
-          </button>
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow hover:opacity-90"
+              style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
+            >
+              + New automation
+            </button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-3xl border border-emerald-100 bg-white/90 p-6 shadow-sm backdrop-blur">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-emerald-600">New automation</p>
+                <p className="text-sm font-semibold text-emerald-600" style={isAdmin ? undefined : { color: palette.primary }}>New automation</p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">Create a rule</h2>
                 <p className="mt-2 text-sm text-slate-500">
                   Choose the type, amount, frequency, and destination account to auto-post recurring activity.
                 </p>
               </div>
-              <div className="rounded-2xl bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Draft</div>
+              <div className="rounded-2xl px-3 py-1 text-xs font-semibold text-emerald-700" style={isAdmin ? { backgroundColor: '#ecfdf3', color: '#047857' } : { backgroundColor: palette.chipBg, color: palette.chipText }}>Draft</div>
             </div>
             <div className="mt-6 space-y-4 text-sm">
               <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
@@ -318,7 +325,7 @@ export default function Automate() {
             </div>
             <button
               onClick={openCreate}
-              className="mt-6 w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-lg hover:bg-emerald-700"
+              className="mt-6 w-full rounded-2xl py-3 text-sm font-semibold text-white shadow-lg hover:opacity-90" style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
             >
               + Build automation
             </button>
@@ -403,7 +410,7 @@ export default function Automate() {
                   </div>
                   <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
                     <button
-                      onClick={() => goToTransactions(automation)}
+                      onClick={() => openEdit(automation)}
                       className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
                     >
                       View log
@@ -574,15 +581,16 @@ export default function Automate() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                >
-                  {saving ? "Saving..." : editing ? "Save changes" : "Create automation"}
-                </button>
-              </div>
-            </form>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
+              >
+                {saving ? "Saving..." : editing ? "Save changes" : "Create automation"}
+              </button>
+            </div>
+          </form>
           </div>
         </div>
       )}

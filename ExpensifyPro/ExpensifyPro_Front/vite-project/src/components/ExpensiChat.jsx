@@ -14,7 +14,7 @@ function getCurrentUser() {
   }
 }
 
-function ExpensiChat({ variant = "floating" }) {
+function ExpensiChat({ variant = "floating", palette }) {
   const location = useLocation();
   const currentUser = getCurrentUser();
   const userId = currentUser?.id ?? null;
@@ -46,6 +46,7 @@ function ExpensiChat({ variant = "floating" }) {
   const [isOpen, setIsOpen] = useState(variant === "page");
 
   const isFloating = variant === "floating";
+  const colors = palette || null;
 
   // Persist every change to messages
   useEffect(() => {
@@ -140,7 +141,21 @@ function ExpensiChat({ variant = "floating" }) {
         onClick={() => setIsOpen(true)}
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10">
-          <span className="text-lg">💬</span>
+          <span className="text-lg"><svg
+  viewBox="0 0 24 24"
+  className="h-6 w-6 text-white"
+  fill="none"
+  aria-hidden="true"
+>
+  <path
+    d="M17.1153 15.3582C16.8446 15.6642 16.5606 15.9665 16.2635 16.2635C11.9678 20.5593 6.58585 22.1422 4.2427 19.7991C2.6363 18.1926 2.8752 15.158 4.56847 12.0242M6.88967 8.72526C7.17138 8.40495 7.46772 8.08875 7.77824 7.77824C12.074 3.48247 17.4559 1.89956 19.7991 4.2427C21.4066 5.85021 21.1662 8.88795 19.4698 12.024M16.2635 7.77824C20.5593 12.074 22.1422 17.4559 19.7991 19.7991C17.4559 22.1422 12.074 20.5593 7.77824 16.2635C3.48247 11.9678 1.89956 6.58585 4.2427 4.2427C6.58585 1.89956 11.9678 3.48247 16.2635 7.77824ZM13.0001 12C13.0001 12.5523 12.5523 13 12.0001 13C11.4478 13 11.0001 12.5523 11.0001 12C11.0001 11.4477 11.4478 11 12.0001 11C12.5523 11 13.0001 11.4477 13.0001 12Z"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+</svg>
+</span>
         </div>
         <div className="hidden sm:flex flex-col items-start">
           <span className="text-[11px] uppercase tracking-wide text-emerald-100">
@@ -168,13 +183,42 @@ function ExpensiChat({ variant = "floating" }) {
   return (
     <div className={outerClass}>
       {/* header */}
-      <div className="flex items-center justify-between gap-3 rounded-t-3xl border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-indigo-50 px-4 py-3">
+      <div
+        className="flex items-center justify-between gap-3 rounded-t-3xl border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-indigo-50 px-4 py-3"
+        style={
+          colors
+            ? {
+                background: `linear-gradient(90deg, ${colors.primarySoft}, #f8fafc)`,
+              }
+            : undefined
+        }
+      >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-600 text-white text-lg shadow-sm">
-            💬
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-2xl text-white text-lg shadow-sm bg-emerald-600"
+            style={{ backgroundColor: colors ? colors.iconBg : undefined }}
+          >
+            <svg
+  viewBox="0 0 24 24"
+  className="h-6 w-6 text-white"
+  fill="none"
+  aria-hidden="true"
+>
+  <path
+    d="M17.1153 15.3582C16.8446 15.6642 16.5606 15.9665 16.2635 16.2635C11.9678 20.5593 6.58585 22.1422 4.2427 19.7991C2.6363 18.1926 2.8752 15.158 4.56847 12.0242M6.88967 8.72526C7.17138 8.40495 7.46772 8.08875 7.77824 7.77824C12.074 3.48247 17.4559 1.89956 19.7991 4.2427C21.4066 5.85021 21.1662 8.88795 19.4698 12.024M16.2635 7.77824C20.5593 12.074 22.1422 17.4559 19.7991 19.7991C17.4559 22.1422 12.074 20.5593 7.77824 16.2635C3.48247 11.9678 1.89956 6.58585 4.2427 4.2427C6.58585 1.89956 11.9678 3.48247 16.2635 7.77824ZM13.0001 12C13.0001 12.5523 12.5523 13 12.0001 13C11.4478 13 11.0001 12.5523 11.0001 12C11.0001 11.4477 11.4478 11 12.0001 11C12.5523 11 13.0001 11.4477 13.0001 12Z"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+</svg>
+
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
+            <span
+              className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600"
+              style={{ color: colors ? colors.primary : undefined }}
+            >
               Expensi
             </span>
             <span className="text-[11px] text-slate-500">
@@ -196,6 +240,14 @@ function ExpensiChat({ variant = "floating" }) {
               type="button"
               onClick={handleResetChat}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+              style={
+                colors
+                  ? {
+                      borderColor: colors.primary,
+                      color: colors.primary,
+                    }
+                  : undefined
+              }
             >
               New chat
             </button>
@@ -233,6 +285,11 @@ function ExpensiChat({ variant = "floating" }) {
                   ? "bg-emerald-600 text-white"
                   : "bg-slate-100 text-slate-900")
               }
+              style={
+                m.role === "user" && colors
+                  ? { backgroundColor: colors.primary }
+                  : undefined
+              }
             >
               {m.content}
             </div>
@@ -248,13 +305,24 @@ function ExpensiChat({ variant = "floating" }) {
       <div className="flex items-center gap-2 rounded-b-3xl border-t border-slate-200 bg-slate-50/60 p-2">
         <input
           className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
-          placeholder="Ask Expensi anything…"
+          style={
+            colors
+              ? {
+                  borderColor: colors.primary,
+                  boxShadow: `0 0 0 2px ${colors.primarySoft}`,
+                }
+              : undefined
+          }
+          placeholder="Ask Expensi anything..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
         />
         <button
           className="rounded-2xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+          style={{
+            backgroundColor: colors ? colors.buttonBg : undefined,
+          }}
           onClick={handleSend}
           disabled={loading || !input.trim()}
         >
@@ -266,3 +334,7 @@ function ExpensiChat({ variant = "floating" }) {
 }
 
 export default ExpensiChat;
+
+
+
+

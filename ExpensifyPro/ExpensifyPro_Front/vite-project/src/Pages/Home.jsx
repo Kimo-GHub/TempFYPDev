@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { expensiPalettes } from "../theme/expensiPalette";
 
 export default function Home() {
     const navigate = useNavigate();
@@ -57,6 +58,8 @@ export default function Home() {
         return parts.slice(0, 2).map((s) => s[0]?.toUpperCase() || "").join("") || "U";
     }, [expUser]);
     const isLoggedIn = Boolean(expUser?.id);
+    const isAdmin = expUser?.role === 1;
+    const palette = !isAdmin && isLoggedIn ? expensiPalettes.user : null;
 
 
 
@@ -153,51 +156,75 @@ export default function Home() {
                     <div className="my-3 flex h-14 items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 shadow-sm ring-1 ring-gray-900/5 px-3 sm:px-4">
                         {/* Brand */}
                         <Link to="#home" className="group inline-flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-xl bg-linear-to-tr from-emerald-400 to-teal-500 shadow-sm" />
+                            <div
+                                className="h-8 w-8 rounded-xl bg-linear-to-tr from-emerald-400 to-teal-500 shadow-sm"
+                                style={
+                                    palette
+                                        ? {
+                                            backgroundImage: `linear-gradient(135deg, ${palette.buttonBg}, ${palette.primary || palette.buttonBg})`,
+                                        }
+                                        : undefined
+                                }
+                            />
                             <span className="text-lg font-semibold tracking-tight">
-                                Expensify<span className="text-emerald-600">Pro</span>
+                                Expensify
+                                <span
+                                    className="text-emerald-600"
+                                    style={palette ? { color: palette.primary || palette.buttonBg } : undefined}
+                                >
+                                    Pro
+                                </span>
                             </span>
                         </Link>
 
                         {/* Desktop nav */}
                         <ul className="hidden md:flex items-center gap-1">
-                            <li>
-                                <a href="#Home" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                    Home
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#aboutus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                    aboutus
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#features" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                    Features
-                                </a>
-                            </li>
-                            <li>
-                                {isLoggedIn ? (
-                                    <Link to="/expensi" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                        Expensi
-                                    </Link>
-                                ) : (
-                                    <a href="#faq" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                        FAQ
-                                    </a>
-                                )}
-                            </li>
-                            <li>
-                                {isLoggedIn ? (
-                                    <Link to="/automate" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                        Automate
-                                    </Link>
-                                ) : (
-                                    <a href="#contactus" className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 hover:text-emerald-700 transition">
-                                        contactus
-                                    </a>
-                                )}
-                            </li>
+                            {(isLoggedIn
+                                ? [
+                                      { to: "#Home", label: "Home", isLink: false },
+                                      { to: "#aboutus", label: "aboutus", isLink: false },
+                                      { to: "#features", label: "Features", isLink: false },
+                                      { to: "/expensi", label: "Expensi", isLink: true },
+                                      { to: "/automate", label: "Automate", isLink: true },
+                                  ]
+                                : [
+                                      { to: "#Home", label: "Home", isLink: false },
+                                      { to: "#aboutus", label: "aboutus", isLink: false },
+                                      { to: "#features", label: "Features", isLink: false },
+                                      { to: "#faq", label: "FAQ", isLink: false },
+                                      { to: "#contactus", label: "contactus", isLink: false },
+                                  ]
+                            ).map((item) => (
+                                <li key={item.label}>
+                                    {item.isLink ? (
+                                        <Link
+                                            to={item.to}
+                                            className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition"
+                                            onMouseEnter={(e) => {
+                                                if (palette) e.currentTarget.style.color = palette.primary || palette.buttonBg;
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (palette) e.currentTarget.style.color = "";
+                                            }}
+                                        >
+                                            {item.label}
+                                        </Link>
+                                    ) : (
+                                        <a
+                                            href={item.to}
+                                            className="text-sm px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition"
+                                            onMouseEnter={(e) => {
+                                                if (palette) e.currentTarget.style.color = palette.primary || palette.buttonBg;
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (palette) e.currentTarget.style.color = "";
+                                            }}
+                                        >
+                                            {item.label}
+                                        </a>
+                                    )}
+                                </li>
+                            ))}
                         </ul>
 
                         {/* Actions */}
@@ -209,7 +236,18 @@ export default function Home() {
                                     className="inline-flex items-center gap-2"
                                 >
                                     <span className="sr-only">Dashboard</span>
-                                    <span className="h-9 w-9 rounded-full overflow-hidden ring-2 ring-emerald-300 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900 shadow-sm">
+                                    <span
+                                        className="h-9 w-9 rounded-full overflow-hidden ring-2 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900 shadow-sm"
+                                        style={
+                                            palette
+                                                ? {
+                                                    ringColor: palette.primary,
+                                                    backgroundColor: `${palette.primary}1a`, // ~10% alpha
+                                                    color: palette.primary,
+                                                }
+                                                : undefined
+                                        }
+                                    >
                                         {avatarUrl ? (
                                             <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                                         ) : (

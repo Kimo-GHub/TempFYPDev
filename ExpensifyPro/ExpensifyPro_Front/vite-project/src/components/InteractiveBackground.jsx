@@ -7,11 +7,32 @@ const ACTIVE_RADIUS = 6;         // size when near the cursor
 const MAX_DIST = 180;            // range of interaction
 const LINE_DIST = 130;           // max distance for connecting lines
 
-export default function InteractiveBackground() {
+const PALETTES = {
+  admin: {
+    bgInner: "rgba(209, 250, 229, 0.6)", // emerald-100-ish
+    bgOuter: "rgba(255, 255, 255, 0)",
+    dot: "rgba(22, 163, 74, ALPHA)",      // emerald-600
+    line: "rgba(45, 212, 191, ALPHA)",    // teal-400
+  },
+  user: {
+    bgInner: "rgba(224, 231, 255, 0.6)", // indigo-100-ish
+    bgOuter: "rgba(255, 255, 255, 0)",
+    dot: "rgba(99, 102, 241, ALPHA)",    // indigo-500
+    line: "rgba(129, 140, 248, ALPHA)",  // indigo-400
+  },
+};
+
+const paletteFromVariant = (variant) => {
+  if (variant === "user") return PALETTES.user;
+  return PALETTES.admin;
+};
+
+export default function InteractiveBackground({ variant = "admin" }) {
   const canvasRef = useRef(null);
   const mouseRef = useRef({ x: -9999, y: -9999 });
 
   useEffect(() => {
+    const palette = paletteFromVariant(variant);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -53,8 +74,8 @@ export default function InteractiveBackground() {
         height / 2,
         Math.max(width, height)
       );
-      g.addColorStop(0, "rgba(209, 250, 229, 0.6)"); // emerald-100-ish
-      g.addColorStop(1, "rgba(255, 255, 255, 0)");
+      g.addColorStop(0, palette.bgInner);
+      g.addColorStop(1, palette.bgOuter);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, width, height);
 
@@ -82,7 +103,7 @@ export default function InteractiveBackground() {
           ctx.beginPath();
           ctx.arc(px, py, radius, 0, Math.PI * 2);
           // teal → emerald mix for more visible color
-          ctx.fillStyle = `rgba(22, 163, 74, ${alpha})`; // emerald-600 with variable alpha
+          ctx.fillStyle = palette.dot.replace("ALPHA", alpha.toFixed(3));
           ctx.fill();
 
           points.push({ x: px, y: py, alpha });
@@ -103,7 +124,7 @@ export default function InteractiveBackground() {
           const strength = 1 - d / LINE_DIST;
           const lineAlpha = 0.25 * strength; // stronger than before
 
-          ctx.strokeStyle = `rgba(45, 212, 191, ${lineAlpha})`; // teal-400
+          ctx.strokeStyle = palette.line.replace("ALPHA", lineAlpha.toFixed(3));
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
@@ -122,7 +143,7 @@ export default function InteractiveBackground() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, []);
+  }, [variant]);
 
   return (
     <canvas

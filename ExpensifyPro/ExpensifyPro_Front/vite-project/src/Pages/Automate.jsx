@@ -73,6 +73,10 @@ export default function Automate() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [logAutomationId, setLogAutomationId] = useState(null);
+  const [logEntries, setLogEntries] = useState([]);
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState("");
 
   const { categories } = useCategories();
   const palette = isAdmin ? expensiPalettes.admin : expensiPalettes.user;
@@ -239,13 +243,33 @@ export default function Automate() {
     }
   };
 
+  const toggleLog = async (automation) => {
+    if (logAutomationId === automation.id) {
+      setLogAutomationId(null);
+      return;
+    }
+    setLogAutomationId(automation.id);
+    setLogLoading(true);
+    setLogError("");
+    try {
+      const res = await apiService.getTransactions({
+        is_recurring: true,
+        q: automation.description || undefined,
+        account_id: automation.account_id || undefined,
+        user_id: isAdmin ? automation.user_id || undefined : currentUserId,
+        page_size: 20,
+      });
+      setLogEntries(res?.results ?? []);
+    } catch (err) {
+      setLogEntries([]);
+      setLogError(err?.message || "Unable to load log");
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
   const goToTransactions = (automation) => {
-    const params = new URLSearchParams();
-    params.set("recurring", "1");
-    if (automation.description) params.set("q", automation.description);
-    if (automation.account_id) params.set("account_id", automation.account_id);
-    if (isAdmin && automation.user_id) params.set("user_id", automation.user_id);
-    navigate(`/user/transactions?${params.toString()}`);
+    toggleLog(automation);
   };
 
   return (
@@ -266,7 +290,9 @@ export default function Automate() {
         <span
           className="inline-flex items-center rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wide"
           style={
-            isAdmin ? undefined : { backgroundColor: palette.chipBg, color: palette.chipText }
+            isAdmin
+              ? { backgroundColor: "#d1fae5", color: "#065f46" }
+              : { backgroundColor: palette.chipBg, color: palette.chipText }
           }
         >
           Automation Suite
@@ -288,7 +314,7 @@ export default function Automate() {
             </div>
             <button
               onClick={openCreate}
-              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow hover:opacity-90"
+              className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700"
               style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
             >
               + New automation
@@ -325,7 +351,8 @@ export default function Automate() {
             </div>
             <button
               onClick={openCreate}
-              className="mt-6 w-full rounded-2xl py-3 text-sm font-semibold text-white shadow-lg hover:opacity-90" style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
+              className="mt-6 w-full rounded-2xl py-3 text-sm font-semibold text-white shadow-lg bg-emerald-600 hover:bg-emerald-700"
+              style={isAdmin ? undefined : { backgroundColor: palette.buttonBg }}
             >
               + Build automation
             </button>
@@ -401,24 +428,24 @@ export default function Automate() {
                     <span className="font-semibold text-slate-900">{categoriesMap.get(automation.category_id) || automation.category_id}</span>
                   </div>
                     )}
-                    {automation.last_processed && (
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>Last run:</span>
-                        <span>{formatDateLabel(automation.last_processed)}</span>
-                      </div>
-                    )}
+                {automation.last_processed && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>Last run:</span>
+                    <span>{formatDateLabel(automation.last_processed)}</span>
                   </div>
-                  <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-                    <button
-                      onClick={() => openEdit(automation)}
-                      className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
-                    >
-                      View log
-                    </button>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEdit(automation)}
-                        className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+                )}
+              </div>
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  onClick={() => toggleLog(automation)}
+                  className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+                >
+                  {logAutomationId === automation.id ? "Hide log" : "View log"}
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openEdit(automation)}
+                    className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
                       >
                         Manage
                       </button>
@@ -430,6 +457,26 @@ export default function Automate() {
                       </button>
                     </div>
                   </div>
+                  {logAutomationId === automation.id && (
+                    <div className="mt-4 rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
+                      {logLoading ? (
+                        <p className="text-sm text-slate-500">Loading log…</p>
+                      ) : logError ? (
+                        <p className="text-sm text-rose-600">{logError}</p>
+                      ) : logEntries.length === 0 ? (
+                        <p className="text-sm text-slate-500">No log entries yet.</p>
+                      ) : (
+                        <div className="space-y-2 text-sm text-slate-700">
+                          {logEntries.map((entry) => (
+                            <div key={entry.id} className="flex justify-between rounded-xl bg-slate-50 px-3 py-2">
+                              <span className="font-medium">{entry.description || "Run"}</span>
+                              <span className="text-slate-500">{formatDateLabel(entry.date || entry.created_at)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })

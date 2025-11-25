@@ -5,6 +5,7 @@ import ExpensiChat from "../components/ExpensiChat";
 import InteractiveBackground from "../components/InteractiveBackground";
 import MainNavbar from "../components/MainNavbar";
 import { expensiPalettes } from "../theme/expensiPalette";
+import AnimatedGradientText from "../components/GradientText";
 
 function getCurrentUserSafe() {
   try {
@@ -58,9 +59,15 @@ export default function ExpensiPage() {
           >
             Conversational assistant
           </span>
+
           <h1 className="mt-4 text-4xl font-semibold text-slate-900">
-            Expensi, your finance co-pilot
+            <AnimatedGradientText
+              text="Expensi, your finance co-pilot"
+              gradientColors={isAdmin ? ["#0ea568", "#0ea568", "#0ea568"] : ["#5b8def", "#7c3aed", "#5b8def"]}
+              className="text-4xl sm:text-5xl font-bold"
+            />
           </h1>
+
           <p className="mt-3 text-sm text-slate-500">
             Ask natural questions about your accounts, budgets, projects and
             automations. Expensi can also create and update items for you.

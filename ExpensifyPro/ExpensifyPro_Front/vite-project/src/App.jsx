@@ -33,8 +33,21 @@ import Projects from "./Pages/User/Projects";
 import Budgets from "./Pages/User/Budgets";
 import Categories from "./Pages/User/Categories";
 import Analytics from "./Pages/User/Analytics";
+import { expensiPalettes } from "./theme/expensiPalette";
+
+function getCurrentUser() {
+  try {
+    return JSON.parse(localStorage.getItem("exp_user") || "null");
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
+  const expUser = getCurrentUser();
+  const isUser = expUser?.id && expUser?.role !== 1;
+  const floatingPalette = isUser ? expensiPalettes.user : null;
+
   return (
     <>
     <Routes>
@@ -76,7 +89,7 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
 
-    <ExpensiChat />
+    <ExpensiChat palette={floatingPalette} />
     </>
   );
 }

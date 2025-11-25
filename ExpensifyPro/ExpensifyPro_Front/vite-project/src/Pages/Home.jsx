@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { expensiPalettes } from "../theme/expensiPalette";
 
@@ -60,6 +60,9 @@ export default function Home() {
     const isLoggedIn = Boolean(expUser?.id);
     const isAdmin = expUser?.role === 1;
     const palette = !isAdmin && isLoggedIn ? expensiPalettes.user : null;
+    const primaryColor = palette?.primary || palette?.buttonBg;
+    const softBg = primaryColor ? `${primaryColor}1a` : undefined; // ~10% alpha
+    const heroBackground = palette ? "url('/assets/BGPURPLE.png')" : "url('/assets/BackgroundImg1.png')";
 
 
 
@@ -69,7 +72,7 @@ export default function Home() {
         const items = [
             {
                 q: "Is ExpensifyPro free to use?",
-                a: "Yes—there’s a generous free plan for individuals. Teams can start free and upgrade when they need advanced controls."
+                a: "Yes a generous free plan for individuals. Teams can start free and upgrade when they need advanced controls."
             },
             {
                 q: "Can I import data from spreadsheets or other apps?",
@@ -81,7 +84,7 @@ export default function Home() {
             },
             {
                 q: "How does receipt scanning work?",
-                a: "Upload a photo or PDF and we’ll auto-extract totals, dates, and merchants. You can review and edit before saving."
+                a: "Upload a photo or PDF and we will auto-extract totals, dates, and merchants. You can review and edit before saving."
             },
             {
                 q: "Is my data secure?",
@@ -102,8 +105,14 @@ export default function Home() {
                                 onClick={() => setOpen(isOpen ? -1 : i)}
                                 className="w-full flex items-center gap-3 justify-between text-left px-5 sm:px-6 py-5"
                             >
-                                <div className="flex items-start gap-3">
-                                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold">
+                                <div className="flex items-start gap-3" >
+                                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold" style={
+                isAdmin
+                ? { backgroundColor: "#d1fae5", color: "#065f46" }
+                : palette
+                ? { backgroundColor: palette.chipBg, color: palette.chipText }
+                : { backgroundColor: "#d1fae5", color: "#065f46" }
+             }>
                                         {String(i + 1).padStart(2, "0")}
                                     </span>
                                     <span className="font-medium text-gray-900">{item.q}</span>
@@ -146,8 +155,7 @@ export default function Home() {
         <div
             className="min-h-screen bg-cover bg-center bg-fixed text-gray-800"
             style={{
-                backgroundImage:
-                    "linear-gradient(120deg, rgba(255,255,255,0.8), rgba(15, 63, 51, 0.25)), url('/assets/BackgroundImg%202.png')"
+                backgroundImage: `linear-gradient(120deg, rgba(255,255,255,0.8), rgba(15, 63, 51, 0.25)), ${heroBackground}`,
             }}
         >
             {/* ===== NAVBAR ===== */}
@@ -350,16 +358,22 @@ export default function Home() {
             <section id="Home" className="relative overflow-hidden">
                 {/* background accents */}
                 <div className="pointer-events-none absolute inset-0 -z-10">
-                    <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl" />
-                    <div className="absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl" />
+                    <div
+                        className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl"
+                        style={primaryColor ? { backgroundColor: softBg || primaryColor } : undefined}
+                    />
+                    <div
+                        className="absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl"
+                        style={primaryColor ? { backgroundColor: softBg || primaryColor } : undefined}
+                    />
                 </div>
 
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-24 lg:pt-24 lg:pb-28 grid lg:grid-cols-12 gap-10">
                     {/* Text */}
                     <div className="lg:col-span-6 flex flex-col justify-center">
-                        <p className="text-emerald-700 font-medium mb-3 animate-fadeIn">Simple • Fast • Insightful</p>
+                        <p className="text-emerald-700 font-medium mb-3 animate-fadeIn" style={primaryColor ? { color: primaryColor } : undefined}>Simple - Fast - Insightful</p>
                         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight animate-slideUp">
-                            Track expenses. <span className="text-emerald-600">Grow smarter.</span>
+                            Track expenses. <span className="text-emerald-600" style={primaryColor ? { color: primaryColor } : undefined}>Grow smarter.</span>
                         </h1>
                         <p className="mt-4 text-gray-600 max-w-xl animate-fadeIn">
                             ExpensifyPro helps you capture receipts, categorize transactions, and visualize cash flow so you can
@@ -370,12 +384,14 @@ export default function Home() {
                             <Link
                                 to="/register"
                                 className="rounded-xl bg-emerald-600 px-5 py-3 text-white text-sm font-medium hover:bg-emerald-700 transition shadow"
+                                style={primaryColor ? { backgroundColor: primaryColor } : undefined}
                             >
                                 Create Free Account
                             </Link>
                             <a
                                 href="#features"
                                 className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-medium hover:border-emerald-400 hover:text-emerald-700 transition"
+                                style={primaryColor ? { color: primaryColor, borderColor: primaryColor } : undefined}
                             >
                                 See Features
                             </a>
@@ -407,8 +423,8 @@ export default function Home() {
                                 <svg viewBox="0 0 560 320" className="w-full h-auto">
                                     <defs>
                                         <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
-                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
-                                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
+                                            <stop offset="0%" stopColor={primaryColor || "#10b981"} stopOpacity="0.35" />
+                                            <stop offset="100%" stopColor={primaryColor || "#10b981"} stopOpacity="0.05" />
                                         </linearGradient>
                                     </defs>
                                     <rect x="0" y="0" width="560" height="320" rx="16" fill="#f9fafb" />
@@ -421,7 +437,7 @@ export default function Home() {
                                         <path
                                             d="M0,190 C60,160 120,210 180,150 C240,90 300,170 360,120 C420,70 480,110 480,110"
                                             fill="none"
-                                            stroke="#10b981"
+                                            stroke={primaryColor || "#10b981"}
                                             strokeWidth="3"
                                         />
                                     </g>
@@ -430,8 +446,11 @@ export default function Home() {
                             </div>
 
                             {/* floating badge */}
-                            <div className="absolute -top-4 -right-4 rounded-2xl bg-emerald-600 text-white text-xs px-3 py-2 shadow-lg animate-slideDown">
-                                AI categorization · Realtime
+                                                        <div
+                                className="absolute -top-4 -right-4 rounded-2xl bg-emerald-600 text-white text-xs px-3 py-2 shadow-lg animate-slideDown"
+                                style={primaryColor ? { backgroundColor: primaryColor } : undefined}
+                            >
+                                AI categorization - Realtime
                             </div>
                         </div>
                     </div>
@@ -444,11 +463,16 @@ export default function Home() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-12">
                         <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3 animate-slideUp">
-                            About <span className="text-emerald-600">ExpensifyPro</span>
+                            About <span className="text-emerald-600" style={palette ? { color: palette.primary || palette.buttonBg } : undefined} >ExpensifyPro</span>
                         </h2>
                         <p className="max-w-2xl mx-auto text-gray-600 animate-fadeIn">
-                            We built ExpensifyPro to help individuals and teams take full control of their finances. Our mission is
-                            simple: make expense management effortless, insightful, and transparent for everyone.
+                            We built ExpensifyPro to help individuals and teams take full control of their finances. Our mission is to make expense management effortless, insightful, and transparent for everyone.
+                        </p>
+                        <p
+                            className="text-emerald-700 font-medium mb-3 animate-fadeIn"
+                            style={primaryColor ? { color: primaryColor } : undefined}
+                        >
+                            Simple - Fast - Insightful
                         </p>
                     </div>
 
@@ -463,13 +487,14 @@ export default function Home() {
                                     strokeWidth="1.5"
                                     stroke="currentColor"
                                     className="w-6 h-6 text-emerald-600"
+                                    style={palette ? { color: palette.primary || palette.buttonBg } : undefined}
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
                                 </svg>
                             </div>
                             <h3 className="text-lg font-semibold mb-2">Simplify Tracking</h3>
                             <p className="text-sm text-gray-600">
-                                Manage all your expenses and income in one intuitive dashboard — no clutter, no confusion.
+                                Manage all your expenses and income in one intuitive dashboard no clutter, no confusion.
                             </p>
                         </div>
 
@@ -482,6 +507,7 @@ export default function Home() {
                                     strokeWidth="1.5"
                                     stroke="currentColor"
                                     className="w-6 h-6 text-emerald-600"
+                                    style={palette ? { color: palette.primary || palette.buttonBg } : undefined}
                                 >
                                     <path
                                         strokeLinecap="round"
@@ -505,6 +531,7 @@ export default function Home() {
                                     strokeWidth="1.5"
                                     stroke="currentColor"
                                     className="w-6 h-6 text-emerald-600"
+                                    style={palette ? { color: palette.primary || palette.buttonBg } : undefined}
                                 >
                                     <path
                                         strokeLinecap="round"
@@ -531,12 +558,12 @@ export default function Home() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* heading */}
                     <div className="text-center mb-14">
-                        <span className="text-emerald-700 font-medium animate-fadeIn">What you get</span>
+                        <span className="text-emerald-700 font-medium animate-fadeIn" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>What you get</span>
                         <h2 className="mt-2 text-3xl sm:text-4xl font-bold text-gray-900 animate-slideUp">
                             Powerful features for effortless finance
                         </h2>
                         <p className="mt-3 text-gray-600 max-w-2xl mx-auto animate-fadeIn">
-                            Capture receipts, categorize transactions, and see insights instantly—built for individuals and teams.
+                            Capture receipts, categorize transactions, and see insights instantlyâ€”built for individuals and teams.
                         </p>
                     </div>
 
@@ -545,18 +572,18 @@ export default function Home() {
                         {/* 1 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M7 3v4m10-4v4M5 7v11a2 2 0 002 2h10a2 2 0 002-2V7" />
                                 </svg>
                             </div>
                             <h3 className="font-semibold mb-1">Smart Receipt Capture</h3>
-                            <p className="text-sm text-gray-600">Attach images or forward emails—auto-extract totals, dates, and merchants.</p>
+                            <p className="text-sm text-gray-600">Attach images or forward emails to auto-extract totals, dates, and merchants.</p>
                         </div>
 
                         {/* 2 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn delay-100">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6h15M4.5 12h15M4.5 18h10" />
                                 </svg>
                             </div>
@@ -567,7 +594,7 @@ export default function Home() {
                         {/* 3 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn delay-200">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l7-7 4 4 7-7M5 21h14a2 2 0 002-2v-5H3v5a2 2 0 002 2z" />
                                 </svg>
                             </div>
@@ -578,7 +605,7 @@ export default function Home() {
                         {/* 4 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h6M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H9L5 9v10a2 2 0 002 2z" />
                                 </svg>
                             </div>
@@ -589,7 +616,7 @@ export default function Home() {
                         {/* 5 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn delay-100">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-3.866 0-7 1.79-7 4s3.134 4 7 4 7-1.79 7-4-3.134-4-7-4z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8V4m0 16v-4" />
                                 </svg>
@@ -601,7 +628,7 @@ export default function Home() {
                         {/* 6 */}
                         <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm hover:shadow-md transition animate-fadeIn delay-200">
                             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.5" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
                                 </svg>
                             </div>
@@ -614,17 +641,17 @@ export default function Home() {
                     <div className="mt-12 rounded-3xl bg-white border border-gray-200 p-6 lg:p-8 shadow-sm">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                             <div className="animate-fadeIn">
-                                <div className="text-xs font-medium text-emerald-700 mb-1">Step 1</div>
+                                <div className="text-xs font-medium text-emerald-700 mb-1" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>Step 1</div>
                                 <h4 className="font-semibold mb-1">Capture</h4>
                                 <p className="text-sm text-gray-600">Upload receipts or add transactions manually.</p>
                             </div>
                             <div className="animate-fadeIn delay-100">
-                                <div className="text-xs font-medium text-emerald-700 mb-1">Step 2</div>
+                                <div className="text-xs font-medium text-emerald-700 mb-1" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>Step 2</div>
                                 <h4 className="font-semibold mb-1">Categorize</h4>
                                 <p className="text-sm text-gray-600">AI suggestions and rules keep things organized.</p>
                             </div>
                             <div className="animate-fadeIn delay-200">
-                                <div className="text-xs font-medium text-emerald-700 mb-1">Step 3</div>
+                                <div className="text-xs font-medium text-emerald-700 mb-1" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>Step 3</div>
                                 <h4 className="font-semibold mb-1">Analyze</h4>
                                 <p className="text-sm text-gray-600">Dashboards and exports for quick decisions.</p>
                             </div>
@@ -638,7 +665,14 @@ export default function Home() {
             <section id="faq" className="py-24 bg-gray-50">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-14">
-                        <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium animate-fadeIn">
+                        <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium animate-fadeIn" 
+                        style={
+                isAdmin
+                ? { backgroundColor: "#d1fae5", color: "#065f46" }
+                : palette
+                ? { backgroundColor: palette.chipBg, color: palette.chipText }
+                : { backgroundColor: "#d1fae5", color: "#065f46" }
+             }>
                             Have questions?
                         </span>
                         <h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900 animate-slideUp">
@@ -652,13 +686,14 @@ export default function Home() {
                     <div className="grid lg:grid-cols-2 gap-5">
                         <FAQ />
                         <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm lg:self-start">
-                            <h3 className="text-lg font-semibold text-gray-900">Can’t find what you’re looking for?</h3>
+                            <h3 className="text-lg font-semibold text-gray-900">Can't find what you're looking for?</h3>
                             <p className="mt-2 text-sm text-gray-600">
                                 Our team is happy to help with setup, imports, and best practices.
                             </p>
                             <a
                                 href="#contactus"
                                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+                                style={isAdmin || !palette ? undefined : { backgroundColor: palette.buttonBg }}
                             >
                                 Contact support
                                 <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -680,11 +715,18 @@ export default function Home() {
             <section id="contactus" className="py-24 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-14">
-                        <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium">
+                        <span className="inline-block rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium"
+                        style={
+                isAdmin
+                ? { backgroundColor: "#d1fae5", color: "#065f46" }
+                : palette
+                ? { backgroundColor: palette.chipBg, color: palette.chipText }
+                : { backgroundColor: "#d1fae5", color: "#065f46" }
+             }>
                             Get in touch
                         </span>
                         <h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-                            We’d love to hear from you
+                            We would love to hear from you
                         </h2>
                         <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
                             Questions about pricing, onboarding, or migrating data? Send us a message.
@@ -697,7 +739,7 @@ export default function Home() {
                             <div className="rounded-3xl border border-gray-200 bg-gray-50 p-6">
                                 <h3 className="text-lg font-semibold text-gray-900">Support</h3>
                                 <p className="mt-1 text-sm text-gray-600">support@expensifypro.io</p>
-                                <p className="mt-3 text-sm text-gray-600">Mon–Fri · 9:00–17:00</p>
+                                <p className="mt-3 text-sm text-gray-600">Mon to Fri / 9:00 - 17:00</p>
                             </div>
                             <div className="rounded-3xl border border-gray-200 p-6">
                                 <h3 className="text-lg font-semibold text-gray-900">Sales</h3>
@@ -706,7 +748,7 @@ export default function Home() {
                             </div>
                             <div className="rounded-3xl border border-gray-200 p-6">
                                 <h3 className="text-lg font-semibold text-gray-900">Address</h3>
-                                <p className="mt-1 text-sm text-gray-600">123 Finance Ave, Suite 400<br />Beirut, LB</p>
+                                <p className="mt-1 text-sm text-gray-600">123 Sharhabil Ave, Suite 67<br />Saida, LB</p>
                             </div>
                         </div>
 
@@ -754,19 +796,21 @@ export default function Home() {
                                             name="message"
                                             rows="5"
                                             className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none focus:border-emerald-400 resize-y"
-                                            placeholder="Tell us a bit about your use case…"
+                                            placeholder="Tell us a bit about your use caseâ€¦"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="mt-6 flex items-center gap-3">
                                     <button
+                                        style={isAdmin || !palette ? undefined : { backgroundColor: palette.buttonBg }}
                                         type="submit"
                                         disabled={sending}
                                         className={`rounded-xl px-5 py-3 text-sm font-medium text-white shadow transition
                 ${sending ? "bg-emerald-400" : "bg-emerald-600 hover:bg-emerald-700"}`}
                                     >
-                                        {sending ? "Sending…" : "Send message"}
+                                        {sending ? "Sending.." : "Send message"}
+                                        
                                     </button>
                                     <span className="text-xs text-gray-500">We typically reply within 24 hours.</span>
                                 </div>
@@ -787,11 +831,18 @@ export default function Home() {
                         {/* Brand + blurb */}
                         <div className="md:col-span-2">
                             <div className="flex items-center gap-2">
-                                <div className="h-8 w-8 rounded-xl bg-linear-to-tr from-emerald-400 to-teal-500 shadow-sm" />
-                                <span className="text-lg font-semibold tracking-tight">
-                                    Expensify<span className="text-emerald-600">Pro</span>
-                                </span>
-                            </div>
+                            <div
+                                className="h-8 w-8 rounded-xl bg-linear-to-tr from-emerald-400 to-teal-500 shadow-sm"
+                                style={
+                                    primaryColor
+                                        ? { backgroundImage: `linear-gradient(135deg, ${primaryColor}, ${primaryColor})` }
+                                        : undefined
+                                }
+                            />
+                            <span className="text-lg font-semibold tracking-tight">
+                                Expensify<span className="text-emerald-600" style={palette ? { color: palette.primary || palette.buttonBg } : undefined}>Pro</span>
+                            </span>
+                        </div>
                             <p className="mt-3 text-sm text-gray-600 max-w-md">
                                 Track expenses, categorize transactions, and visualize cash flow with ease.
                                 Built for individuals and teams who want clarity and control.
@@ -799,9 +850,12 @@ export default function Home() {
 
                             {/* Socials */}
                             <div className="mt-4 flex items-center gap-3">
-                                {/* Replace # with real links later */}
-                                <a href="#" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:text-emerald-700 hover:border-emerald-300 transition" aria-label="Twitter">
-                                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M21.5 6.5l-6.7 11.9h-1.6l3-5.3-5.1-6.6h1.6l4.2 5.4 3.1-5.4h1.5z" /></svg>
+                               
+                                <a href="#" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:text-emerald-700 hover:border-emerald-300 transition" aria-label="Instagram">
+                                    <svg fill="currentColor" width="20px" height="20px" viewBox="0 0 0.6 0.6" xmlns="http://www.w3.org/2000/svg" data-name="Layer 1">
+  <path d="M0.432 0.138a0.03 0.03 0 1 0 0.03 0.03 0.03 0.03 0 0 0 -0.03 -0.03m0.115 0.06L0.535 0.138A0.25 0.25 0 0 0 0.505 0.092 0.25 0.25 0 0 0 0.46 0.065 0.25 0.25 0 0 0 0.4 0.053L0.3 0.05 0.198 0.053a0.25 0.25 0 0 0 -0.06 0.013 0.25 0.25 0 0 0 -0.045 0.027 0.25 0.25 0 0 0 -0.027 0.045 0.25 0.25 0 0 0 -0.013 0.06L0.05 0.3l0.003 0.103a0.25 0.25 0 0 0 0.013 0.06 0.25 0.25 0 0 0 0.027 0.045 0.25 0.25 0 0 0 0.045 0.027 0.25 0.25 0 0 0 0.06 0.013L0.3 0.55 0.403 0.547A0.25 0.25 0 0 0 0.463 0.535 0.25 0.25 0 0 0 0.508 0.508 0.25 0.25 0 0 0 0.537 0.463L0.55 0.403 0.552 0.3 0.55 0.198M0.503 0.4 0.495 0.448 0.478 0.475 0.45 0.493 0.403 0.5l-0.1 0.003L0.203 0.5 0.155 0.493 0.128 0.475 0.11 0.448 0.1 0.4 0.098 0.3 0.1 0.2 0.107 0.152 0.125 0.125 0.152 0.105 0.2 0.098 0.3 0.095l0.1 0.003 0.048 0.007 0.03 0.02 0.018 0.027 0.007 0.048 0.003 0.1zM0.3 0.173A0.128 0.128 0 1 0 0.428 0.3 0.125 0.125 0 0 0 0.3 0.173m0 0.213A0.083 0.083 0 1 1 0.383 0.3 0.083 0.083 0 0 1 0.3 0.383"/>
+</svg>
+
                                 </a>
                                 <a href="#" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:text-emerald-700 hover:border-emerald-300 transition" aria-label="LinkedIn">
                                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM0 8.98h5v15H0v-15zM8 8.98h4.8v2.04h.07c.67-1.27 2.3-2.6 4.73-2.6 5.06 0 6 3.33 6 7.66v7.9h-5v-7c0-1.67-.03-3.8-2.32-3.8-2.32 0-2.68 1.82-2.68 3.68v7.12H8v-15z" /></svg>
@@ -838,7 +892,7 @@ export default function Home() {
                         <div>
                             <h4 className="text-sm font-semibold text-gray-900">Newsletter</h4>
                             <p className="mt-3 text-sm text-gray-600">
-                                Monthly updates—no spam, cancel anytime.
+                                Monthly updates.. no spam, cancel anytime.
                             </p>
                             <form
                                 onSubmit={(e) => { e.preventDefault(); alert("Subscribed!"); e.target.reset(); }}
@@ -852,6 +906,7 @@ export default function Home() {
                                 />
                                 <button
                                     className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition"
+                                    style={isAdmin || !palette ? undefined : { backgroundColor: palette.buttonBg }}
                                 >
                                     Join
                                 </button>
@@ -861,7 +916,7 @@ export default function Home() {
 
                     <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 pt-6">
                         <p className="text-xs text-gray-500">
-                            © {year} ExpensifyPro. All rights reserved.
+                           © {year} ExpensifyPro. All rights reserved.
                         </p>
 
                         {/* Back to top */}
@@ -885,3 +940,7 @@ export default function Home() {
     );
 
 }
+
+
+
+

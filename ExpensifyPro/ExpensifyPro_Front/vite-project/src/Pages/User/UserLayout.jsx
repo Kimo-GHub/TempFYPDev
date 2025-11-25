@@ -153,6 +153,20 @@ export default function UserLayout() {
     saveHistory(next);
   };
 
+  const clearAll = () => {
+    setNotifItems([]);
+    setUnreadCount(0);
+    saveHistory([]);
+    setNotifOpen(false);
+  };
+
+  const removeOne = (id) => {
+    const next = notifItems.filter((n) => n.id !== id);
+    setNotifItems(next);
+    setUnreadCount(next.filter((n) => !n.read).length);
+    saveHistory(next);
+  };
+
   const toggleRead = (id) => {
     const next = notifItems.map((n) => (n.id === id ? { ...n, read: true } : n));
     setNotifItems(next);
@@ -185,25 +199,47 @@ export default function UserLayout() {
             <div className="relative">
               <button
                 onClick={() => setNotifOpen((v) => !v)}
-                className="relative rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                className="relative flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                aria-label="Notifications"
               >
-                🔔
+                <svg
+                  className="h-5 w-5 text-slate-700"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M14.9997 19C14.9997 20.6569 13.6566 22 11.9997 22C10.3429 22 8.99972 20.6569 8.99972 19M13.7962 6.23856C14.2317 5.78864 14.4997 5.17562 14.4997 4.5C14.4997 3.11929 13.3804 2 11.9997 2C10.619 2 9.49972 3.11929 9.49972 4.5C9.49972 5.17562 9.76772 5.78864 10.2032 6.23856M17.9997 11.2C17.9997 9.82087 17.3676 8.49823 16.2424 7.52304C15.1171 6.54786 13.591 6 11.9997 6C10.4084 6 8.8823 6.54786 7.75708 7.52304C6.63186 8.49823 5.99972 9.82087 5.99972 11.2C5.99972 13.4818 5.43385 15.1506 4.72778 16.3447C3.92306 17.7056 3.5207 18.3861 3.53659 18.5486C3.55476 18.7346 3.58824 18.7933 3.73906 18.9036C3.87089 19 4.53323 19 5.85791 19H18.1415C19.4662 19 20.1286 19 20.2604 18.9036C20.4112 18.7933 20.4447 18.7346 20.4629 18.5486C20.4787 18.3861 20.0764 17.7056 19.2717 16.3447C18.5656 15.1506 17.9997 13.4818 17.9997 11.2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 {unreadCount > 0 ? (
                   <span className="absolute -top-1 -right-1 h-5 min-w-5 rounded-full bg-indigo-600 px-1 text-center text-[11px] font-bold text-white">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 ) : null}
               </button>
-              {notifOpen ? (
+                {notifOpen ? (
                 <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl ring-1 ring-slate-100 z-30">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-slate-800">Notifications</span>
-                    <button
-                      onClick={markAllRead}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                    >
-                      Mark all read
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={markAllRead}
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                      >
+                        Mark all read
+                      </button>
+                      <button
+                        onClick={clearAll}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {notifItems.length === 0 ? (
@@ -218,14 +254,23 @@ export default function UserLayout() {
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-slate-800">{n.title}</span>
-                            {!n.read ? (
+                            <div className="flex items-center gap-2">
+                              {!n.read ? (
+                                <button
+                                  onClick={() => toggleRead(n.id)}
+                                  className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700"
+                                >
+                                  Read
+                                </button>
+                              ) : null}
                               <button
-                                onClick={() => toggleRead(n.id)}
-                                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700"
+                                onClick={() => removeOne(n.id)}
+                                className="text-[12px] font-semibold text-rose-500 hover:text-rose-600"
+                                aria-label="Remove notification"
                               >
-                                Read
+                                ×
                               </button>
-                            ) : null}
+                            </div>
                           </div>
                           <div className="text-slate-600 mt-0.5">{n.message}</div>
                           <div className="text-[10px] text-slate-400 mt-1">

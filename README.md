@@ -28,6 +28,8 @@ Notes:
 - IF the backend is not running the project wont run (obviously).
 - DO NOT Create a new venv every time you want to open the project.
 
-
+## When you need to run automations manually:
+### cd to backend
+### python manage.py run_recurring
 
 ### Project Created By: Adham Hijazi - Karim Chames El Deen - Mohammad Itani - Mohammad Al Yousif.

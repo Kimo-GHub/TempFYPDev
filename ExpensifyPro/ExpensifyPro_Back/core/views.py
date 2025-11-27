@@ -1070,6 +1070,50 @@ def delete_budget(request, budget_id: int):
 # Transactions (int IDs)
 # =========================
 
+class _TxSnapshot:
+    def __init__(self, t: Transaction):
+        self.type = t.type
+        self.amount = t.amount
+        self.account_id = t.account_id
+        self.to_account_id = t.to_account_id
+        self.org_id = t.org_id
+
+
+def _apply_balance_effect(tx: Transaction, mult: int = 1):
+    """
+    Adjusts account balances in-memory for a transaction. Mult = +1 to apply, -1 to rollback.
+    Best-effort: failures are swallowed to avoid blocking the primary operation.
+    """
+    try:
+        amt = Decimal(tx.amount or 0)
+    except Exception:
+        return
+    if not amt:
+        return
+
+    def adjust(acc_id: Optional[int], delta: Decimal):
+        if not acc_id:
+            return
+        try:
+            acc = Account.objects.get(id=acc_id, org_id=tx.org_id)
+        except Account.DoesNotExist:
+            return
+        before = acc.balance or Decimal("0")
+        acc.balance = before + delta
+        try:
+            acc.save(update_fields=["balance"])
+        except Exception:
+            pass
+
+    if tx.type == "expense":
+        adjust(tx.account_id, -(amt * mult))
+    elif tx.type == "income":
+        adjust(tx.account_id, +(amt * mult))
+    elif tx.type == "transfer":
+        adjust(tx.account_id, -(amt * mult))
+        adjust(tx.to_account_id, +(amt * mult))
+
+
 def _serialize_transaction(t: Transaction) -> TransactionSchema:
     return TransactionSchema(
         id=t.id,
@@ -1236,6 +1280,7 @@ def create_transaction(request, payload: TransactionCreateSchema):
             to_account_id=tid,
             org_id=org,
         )
+        _apply_balance_effect(t, +1)
         return 201, _serialize_transaction(t)
 
     except HttpError as he:
@@ -1276,6 +1321,7 @@ def update_transaction(request, transaction_id: int, payload: TransactionUpdateS
         except Transaction.DoesNotExist:
             return 404, {"message": "Transaction not found"}
 
+        snapshot = _TxSnapshot(t)
         data = payload.dict(exclude_unset=True)
 
         if "user" in data:
@@ -1327,6 +1373,8 @@ def update_transaction(request, transaction_id: int, payload: TransactionUpdateS
                 return 400, {"message": "to_account not allowed unless type=transfer", "code": "validationError"}
 
         t.save()
+        _apply_balance_effect(snapshot, -1)
+        _apply_balance_effect(t, +1)
         return 200, _serialize_transaction(t)
 
     except HttpError as he:
@@ -1346,6 +1394,7 @@ def delete_transaction(request, transaction_id: int):
         except Transaction.DoesNotExist:
             return 404, {"message": "Transaction not found"}
 
+        _apply_balance_effect(t, -1)
         t.delete()
         return 200, {"message": "Transaction deleted", "code": "TransactionDeleted"}
 

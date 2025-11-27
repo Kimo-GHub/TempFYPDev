@@ -86,6 +86,11 @@ export default function Automate() {
     accounts.forEach((acc) => map.set(acc.id, acc.name));
     return map;
   }, [accounts]);
+  const accountById = useMemo(() => {
+    const map = new Map();
+    accounts.forEach((acc) => map.set(acc.id, acc));
+    return map;
+  }, [accounts]);
   const selectedUserId = isAdmin ? (form.user || currentUserId || null) : currentUserId;
   const accountsForForm = useMemo(() => {
     if (!isAdmin) return accounts;
@@ -209,11 +214,21 @@ export default function Automate() {
       user: ownerId,
     };
     try {
+      const prev = editing;
       if (editing) {
         await apiService.updateTransaction(editing.id, payload);
+        await applyTxEffect(prev, -1);
       } else {
         await apiService.createTransaction(payload);
       }
+      await applyTxEffect(
+        {
+          ...payload,
+          account_id: payload.account,
+          to_account_id: payload.to_account,
+        },
+        +1,
+      );
       setModalOpen(false);
       setEditing(null);
       setForm({ ...defaultForm, user: isAdmin ? "" : currentUserId });
@@ -234,6 +249,7 @@ export default function Automate() {
     setDeleting(true);
     try {
       await apiService.deleteTransaction(deleteTarget.id);
+      await applyTxEffect(deleteTarget, -1);
       setDeleteTarget(null);
       await loadAutomations();
     } catch (err) {
@@ -253,7 +269,6 @@ export default function Automate() {
     setLogError("");
     try {
       const res = await apiService.getTransactions({
-        is_recurring: true,
         q: automation.description || undefined,
         account_id: automation.account_id || undefined,
         user_id: isAdmin ? automation.user_id || undefined : currentUserId,
@@ -270,6 +285,45 @@ export default function Automate() {
 
   const goToTransactions = (automation) => {
     toggleLog(automation);
+  };
+
+  const applyTxEffect = async (tx, mult) => {
+    const amt = Number(tx?.amount || 0);
+    if (!amt || Number.isNaN(amt)) return;
+    const type = tx?.type;
+    const deltas = new Map();
+    if (type === "expense") {
+      const acct = Number(tx.account ?? tx.account_id);
+      if (acct) deltas.set(acct, -(amt * mult));
+    } else if (type === "income") {
+      const acct = Number(tx.account ?? tx.account_id);
+      if (acct) deltas.set(acct, +(amt * mult));
+    } else if (type === "transfer") {
+      const fromId = Number(tx.account ?? tx.account_id);
+      const toId = Number(tx.to_account ?? tx.to_account_id);
+      if (fromId) deltas.set(fromId, -(amt * mult));
+      if (toId) deltas.set(toId, +(amt * mult));
+    }
+
+    for (const [id, delta] of deltas.entries()) {
+      const acc = accountById.get(id);
+      if (!acc) continue;
+      const before = Number(acc.balance || 0);
+      const after = before + delta;
+      try {
+        await apiService.updateAccount(id, { balance: after });
+        acc.balance = after;
+      } catch {
+        // balance sync failures should not block UX
+      }
+    }
+
+    try {
+      localStorage.setItem("accounts:refresh", String(Date.now()));
+      window.dispatchEvent(new Event("accounts:refresh"));
+    } catch {
+      // ignore storage dispatch errors
+    }
   };
 
   return (

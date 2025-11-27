@@ -149,3 +149,17 @@ import os
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 EXPENSI_ENABLED = os.getenv("EXPENSI_ENABLED", "True") == "True"
+
+# Recurring worker defaults:
+# - Enabled by default in DEBUG to avoid manual commands during dev.
+# - Can be overridden via env vars RECURRING_WORKER_ENABLED / RECURRING_WORKER_INTERVAL.
+_worker_enabled_env = os.getenv("RECURRING_WORKER_ENABLED")
+if _worker_enabled_env is None:
+    RECURRING_WORKER_ENABLED = DEBUG
+else:
+    RECURRING_WORKER_ENABLED = _worker_enabled_env.lower() == "true"
+
+try:
+    RECURRING_WORKER_INTERVAL = float(os.getenv("RECURRING_WORKER_INTERVAL", "60"))
+except ValueError:
+    RECURRING_WORKER_INTERVAL = 60.0

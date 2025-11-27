@@ -1,5 +1,5 @@
 ﻿// src/components/ExpensiChat.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { askExpensi } from "../utils/expensiApi";
 import { runExpensiAction } from "../utils/expensiActions";
@@ -14,11 +14,12 @@ function getCurrentUser() {
   }
 }
 
-function ExpensiChat({ variant = "floating", palette }) {
+function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   const location = useLocation();
   const currentUser = getCurrentUser();
   const userId = currentUser?.id ?? null;
   const storageKey = userId ? `${CHAT_KEY_BASE}_${userId}` : null;
+
   const [animState, setAnimState] = useState("closed");
   const [bubbleDisabledUntil, setBubbleDisabledUntil] = useState(0);
 
@@ -35,6 +36,7 @@ function ExpensiChat({ variant = "floating", palette }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(variant === "page");
+  const [autoHandled, setAutoHandled] = useState(false); // prevent double auto-run
 
   const isFloating = variant === "floating";
   const colors = palette || null;
@@ -43,6 +45,9 @@ function ExpensiChat({ variant = "floating", palette }) {
   const showFloatingCard = !isFloating || isOpen || isOpening || isClosing;
   const showBubble = isFloating && animState === "closed";
 
+  const autoRanRef = useRef(false);
+
+  // Persist chat history
   useEffect(() => {
     if (!storageKey) return;
     try {
@@ -52,9 +57,123 @@ function ExpensiChat({ variant = "floating", palette }) {
     }
   }, [messages, storageKey]);
 
+  // Helper: call Expensi API and append replies
+  const callExpensi = async (newMessages) => {
+    try {
+      const result = await askExpensi(newMessages);
+
+      if (result.type === "text") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: result.text },
+        ]);
+      }
+
+      if (result.type === "action") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Expensi wants to run action: ${result.action}`,
+          },
+        ]);
+
+        const actionMessage = await runExpensiAction(
+          result.action,
+          result.params
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: actionMessage },
+        ]);
+      }
+    } catch (err) {
+      console.error("Expensi chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Sorry, I couldn't reach Expensi right now. Please try again in a moment.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // AUTO MODE: triggered when coming from Forecasts with "Recommended actions"
+  useEffect(() => {
+    if (!userId) return;
+    if (variant !== "page") return;
+    if (!autoMode) return;
+    if (autoHandled) return;
+    if (autoRanRef.current) return;
+    autoRanRef.current = true;
+
+    // Mark as handled so effect doesn't re-run
+    setAutoHandled(true);
+
+    let saved = null;
+    try {
+      const raw = localStorage.getItem("expensi_last_forecast");
+      if (raw) saved = JSON.parse(raw);
+    } catch {
+      // ignore parse error
+    }
+
+    const summary = saved?.summary || null;
+    const target = saved?.target || null;
+    const horizon = saved?.horizon || null;
+
+    const parts = [];
+    parts.push(
+      "You are Expensi, the finance assistant inside ExpensifyPro. We just ran a forecasting analysis in the Admin > Forecasts tab."
+    );
+    if (target) {
+      parts.push(
+        `The forecast target was: **${target}** (net / income / expense).`
+      );
+    }
+    if (horizon) {
+      parts.push(`The horizon was about **${horizon} months** into the future.`);
+    }
+    if (summary) {
+      parts.push(
+        "Here is the narrative explanation of the forecast that the user just read:"
+      );
+      parts.push(summary);
+    } else {
+      parts.push(
+        "The user has just seen a forecast chart (history line, forecast line, and confidence interval), but we couldn't load the full summary text from storage."
+      );
+    }
+    parts.push(
+      "Based only on this forecast and the explanation above, give **3–6 specific, practical recommended actions** for the organization. " +
+        "Group them under short headings like 'Check data quality', 'Budget adjustments', 'Risk management', 'Growth opportunities', etc. " +
+        "Make the advice concrete (what to review, what thresholds to watch, what reports to run) and avoid generic textbook tips."
+    );
+
+    const autoPrompt = parts.join("\n\n");
+
+    // Use this only for the API call, don't show it in the UI
+   const convoForApi = [
+  ...messages,
+  { role: "user", content: autoPrompt },
+  ];
+
+    setLoading(true);
+    callExpensi(convoForApi);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMode, variant, userId, autoHandled, messages]);
+
+  // ---- Early exits (AFTER hooks) ----
   if (!userId) return null;
   if (isFloating && location.pathname === "/expensi") return null;
 
+  // ----- Floating open/close -----
   const handleOpenFloating = () => {
     if (Date.now() < bubbleDisabledUntil) return;
     setIsOpen(true);
@@ -69,6 +188,7 @@ function ExpensiChat({ variant = "floating", palette }) {
     setBubbleDisabledUntil(Date.now() + 200);
   };
 
+  // ----- Manual send -----
   const handleSend = async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -77,33 +197,7 @@ function ExpensiChat({ variant = "floating", palette }) {
     setMessages(newMessages);
     setInput("");
     setLoading(true);
-
-    try {
-      const result = await askExpensi(newMessages);
-
-      if (result.type === "text") {
-        setMessages([...newMessages, { role: "assistant", content: result.text }]);
-      }
-
-      if (result.type === "action") {
-        setMessages([
-          ...newMessages,
-          { role: "assistant", content: `Expensi wants to run action: ${result.action}` },
-        ]);
-
-        const actionMessage = await runExpensiAction(result.action, result.params);
-
-        setMessages((prev) => [...prev, { role: "assistant", content: actionMessage }]);
-      }
-    } catch (err) {
-      console.error("Expensi chat error:", err);
-      setMessages([
-        ...newMessages,
-        { role: "assistant", content: "Sorry, I couldn't reach Expensi right now. Please try again in a moment." },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await callExpensi(newMessages);
   };
 
   const handleKeyDown = (e) => {
@@ -116,6 +210,7 @@ function ExpensiChat({ variant = "floating", palette }) {
   const handleResetChat = () => {
     setMessages([]);
     setInput("");
+    setAutoHandled(false); // allow future auto-modes again
     try {
       if (storageKey) localStorage.removeItem(storageKey);
     } catch {
@@ -123,6 +218,7 @@ function ExpensiChat({ variant = "floating", palette }) {
     }
   };
 
+  // ---- Floating bubble render ----
   if (showBubble) {
     return (
       <button
@@ -131,7 +227,12 @@ function ExpensiChat({ variant = "floating", palette }) {
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10">
           <span className="text-lg">
-            <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-white"
+              fill="none"
+              aria-hidden="true"
+            >
               <path
                 d="M17.1153 15.3582C16.8446 15.6642 16.5606 15.9665 16.2635 16.2635C11.9678 20.5593 6.58585 22.1422 4.2427 19.7991C2.6363 18.1926 2.8752 15.158 4.56847 12.0242M6.88967 8.72526C7.17138 8.40495 7.46772 8.08875 7.77824 7.77824C12.074 3.48247 17.4559 1.89956 19.7991 4.2427C21.4066 5.85021 21.1662 8.88795 19.4698 12.024M16.2635 7.77824C20.5593 12.074 22.1422 17.4559 19.7991 19.7991C17.4559 22.1422 12.074 20.5593 7.77824 16.2635C3.48247 11.9678 1.89956 6.58585 4.2427 4.2427C6.58585 1.89956 11.9678 3.48247 16.2635 7.77824ZM13.0001 12C13.0001 12.5523 12.5523 13 12.0001 13C11.4478 13 11.0001 12.5523 11.0001 12C11.0001 11.4477 11.4478 11 12.0001 11C12.5523 11 13.0001 11.4477 13.0001 12Z"
                 stroke="currentColor"
@@ -143,162 +244,184 @@ function ExpensiChat({ variant = "floating", palette }) {
           </span>
         </div>
         <div className="hidden sm:flex flex-col items-start">
-          <span className="text-[11px] uppercase tracking-wide text-emerald-100">Ask Expensi</span>
-          <span className="text-sm font-semibold text-white">Finance assistant</span>
+          <span className="text-[11px] uppercase tracking-wide text-emerald-100">
+            Ask Expensi
+          </span>
+          <span className="text-sm font-semibold text-white">
+            Finance assistant
+          </span>
         </div>
       </button>
     );
   }
 
   const outerClass =
-    (isFloating ? "fixed bottom-6 right-6 w-96 max-w-[95vw] " : "relative w-full max-w-3xl mx-auto ") +
+    (isFloating
+      ? "fixed bottom-6 right-6 w-96 max-w-[95vw] "
+      : "relative w-full max-w-3xl mx-auto ") +
     "z-40 flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl";
 
   // Animation classes temporarily disabled
   const animationClass = "";
 
-  const messagesClass = "flex-1 overflow-y-auto p-3 space-y-2 text-sm " + (isFloating ? "max-h-80" : "h-[420px]");
+  const messagesClass =
+    "flex-1 overflow-y-auto p-3 space-y-2 text-sm " +
+    (isFloating ? "max-h-80" : "h-[420px]");
 
   return (
-    <>
-      {/* Animation styles disabled */}
-
+    <div
+      className={`${outerClass} ${animationClass}`}
+      onAnimationEnd={() => {
+        if (isFloating && animState === "closing") {
+          setIsOpen(false);
+          setAnimState("closed");
+        }
+        if (isFloating && animState === "opening") {
+          setAnimState("open");
+        }
+      }}
+    >
       <div
-        className={`${outerClass} ${animationClass}`}
-        onAnimationEnd={() => {
-          if (isFloating && animState === "closing") {
-            setIsOpen(false);
-            setAnimState("closed");
-          }
-          if (isFloating && animState === "opening") {
-            setAnimState("open");
-          }
-        }}
+        className="flex items-center justify-between gap-3 rounded-t-3xl border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-indigo-50 px-4 py-3"
+        style={
+          colors
+            ? {
+                background: `linear-gradient(90deg, ${colors.primarySoft}, #f8fafc)`,
+              }
+            : undefined
+        }
       >
-        <div
-          className="flex items-center justify-between gap-3 rounded-t-3xl border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-indigo-50 px-4 py-3"
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-2xl text-white text-lg shadow-sm bg-emerald-600"
+            style={{ backgroundColor: colors ? colors.iconBg : undefined }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-white"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M17.1153 15.3582C16.8446 15.6642 16.5606 15.9665 16.2635 16.2635C11.9678 20.5593 6.58585 22.1422 4.2427 19.7991C2.6363 18.1926 2.8752 15.158 4.56847 12.0242M6.88967 8.72526C7.17138 8.40495 7.46772 8.08875 7.77824 7.77824C12.074 3.48247 17.4559 1.89956 19.7991 4.2427C21.4066 5.85021 21.1662 8.88795 19.4698 12.024M16.2635 7.77824C20.5593 12.074 22.1422 17.4559 19.7991 19.7991C17.4559 22.1422 12.074 20.5593 7.77824 16.2635C3.48247 11.9678 1.89956 6.58585 4.2427 4.2427C6.58585 1.89956 11.9678 3.48247 16.2635 7.77824ZM13.0001 12C13.0001 12.5523 12.5523 13 12.0001 13C11.4478 13 11.0001 12.5523 11.0001 12C11.0001 11.4477 11.4478 11 12.0001 11C12.5523 11 13.0001 11.4477 13.0001 12Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span
+              className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600"
+              style={{ color: colors ? colors.primary : undefined }}
+            >
+              Expensi
+            </span>
+            <span className="text-[11px] text-slate-500">
+              SPET finance assistant
+            </span>
+          </div>
+        </div>
+
+        {isFloating ? (
+          <button
+            className="rounded-full p-1.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            onClick={handleCloseFloating}
+          >
+            ×
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetChat}
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+              style={
+                colors
+                  ? {
+                      borderColor: colors.primary,
+                      color: colors.primary,
+                    }
+                  : undefined
+              }
+            >
+              New chat
+            </button>
+            <button
+              type="button"
+              onClick={handleResetChat}
+              className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+            >
+              Reset history
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className={messagesClass}>
+        {messages.length === 0 && !loading && (
+          <div className="text-xs text-slate-400">
+            Ask me about accounts, budgets, projects, automations, or how to
+            use ExpensifyPro.
+          </div>
+        )}
+
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
+          >
+            <div
+              className={
+                "px-3 py-2 rounded-2xl max-w-[80%] whitespace-pre-wrap " +
+                (m.role === "user"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-100 text-slate-900")
+              }
+              style={
+                m.role === "user" && colors
+                  ? { backgroundColor: colors.primary }
+                  : undefined
+              }
+            >
+              {m.content}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="mt-1 text-xs text-slate-400">Expensi is thinking..</div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 rounded-b-3xl border-t border-slate-200 bg-slate-50/60 p-2">
+        <input
+          className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
           style={
             colors
               ? {
-                  background: `linear-gradient(90deg, ${colors.primarySoft}, #f8fafc)`
+                  borderColor: colors.primary,
+                  boxShadow: `0 0 0 2px ${colors.primarySoft}`,
                 }
               : undefined
           }
+          placeholder="Ask Expensi anything..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        <button
+          className="rounded-2xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+          style={{ backgroundColor: colors ? colors.buttonBg : undefined }}
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
         >
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-2xl text-white text-lg shadow-sm bg-emerald-600"
-              style={{ backgroundColor: colors ? colors.iconBg : undefined }}
-            >
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" aria-hidden="true">
-                <path
-                  d="M17.1153 15.3582C16.8446 15.6642 16.5606 15.9665 16.2635 16.2635C11.9678 20.5593 6.58585 22.1422 4.2427 19.7991C2.6363 18.1926 2.8752 15.158 4.56847 12.0242M6.88967 8.72526C7.17138 8.40495 7.46772 8.08875 7.77824 7.77824C12.074 3.48247 17.4559 1.89956 19.7991 4.2427C21.4066 5.85021 21.1662 8.88795 19.4698 12.024M16.2635 7.77824C20.5593 12.074 22.1422 17.4559 19.7991 19.7991C17.4559 22.1422 12.074 20.5593 7.77824 16.2635C3.48247 11.9678 1.89956 6.58585 4.2427 4.2427C6.58585 1.89956 11.9678 3.48247 16.2635 7.77824ZM13.0001 12C13.0001 12.5523 12.5523 13 12.0001 13C11.4478 13 11.0001 12.5523 11.0001 12C11.0001 11.4477 11.4478 11 12.0001 11C12.5523 11 13.0001 11.4477 13.0001 12Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <div className="flex flex-col">
-              <span
-                className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600"
-                style={{ color: colors ? colors.primary : undefined }}
-              >
-                Expensi
-              </span>
-              <span className="text-[11px] text-slate-500">SPET finance assistant</span>
-            </div>
-          </div>
-
-          {isFloating ? (
-            <button
-              className="rounded-full p-1.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              onClick={handleCloseFloating}
-            >
-              ×
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleResetChat}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
-                style={
-                  colors
-                    ? {
-                        borderColor: colors.primary,
-                        color: colors.primary
-                      }
-                    : undefined
-                }
-              >
-                New chat
-              </button>
-              <button
-                type="button"
-                onClick={handleResetChat}
-                className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-              >
-                Reset history
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className={messagesClass}>
-          {messages.length === 0 && !loading && (
-            <div className="text-xs text-slate-400">
-              Ask me about accounts, budgets, projects, automations, or how to use ExpensifyPro.
-            </div>
-          )}
-
-          {messages.map((m, i) => (
-            <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div
-                className={
-                  "px-3 py-2 rounded-2xl max-w-[80%] whitespace-pre-wrap " +
-                  (m.role === "user" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-900")
-                }
-                style={m.role === "user" && colors ? { backgroundColor: colors.primary } : undefined}
-              >
-                {m.content}
-              </div>
-            </div>
-          ))}
-
-          {loading && <div className="mt-1 text-xs text-slate-400">Expensi is thinking..</div>}
-        </div>
-
-        <div className="flex items-center gap-2 rounded-b-3xl border-t border-slate-200 bg-slate-50/60 p-2">
-          <input
-            className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
-            style={
-              colors
-                ? {
-                    borderColor: colors.primary,
-                    boxShadow: `0 0 0 2px ${colors.primarySoft}`
-                  }
-                : undefined
-            }
-            placeholder="Ask Expensi anything..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <button
-            className="rounded-2xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-            style={{ backgroundColor: colors ? colors.buttonBg : undefined }}
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-          >
-            Send
-          </button>
-        </div>
+          Send
+        </button>
       </div>
-    </>
+    </div>
   );
 }
 
 export default ExpensiChat;
-

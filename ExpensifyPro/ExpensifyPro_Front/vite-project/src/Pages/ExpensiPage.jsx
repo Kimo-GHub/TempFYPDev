@@ -1,6 +1,6 @@
 // src/Pages/ExpensiPage.jsx
 import React, { useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ExpensiChat from "../components/ExpensiChat";
 import InteractiveBackground from "../components/InteractiveBackground";
 import MainNavbar from "../components/MainNavbar";
@@ -17,6 +17,11 @@ function getCurrentUserSafe() {
 
 export default function ExpensiPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // e.g. set by Forecasts page: navigate("/expensi", { state: { autoMode: "forecast_advisor" } })
+  const autoMode = location.state?.autoMode || null;
+
   const currentUser = useMemo(() => getCurrentUserSafe(), []);
   const isLoggedIn = !!currentUser?.id;
 
@@ -63,7 +68,11 @@ export default function ExpensiPage() {
           <h1 className="mt-4 text-4xl font-semibold text-slate-900">
             <AnimatedGradientText
               text="Expensi, your finance co-pilot"
-              gradientColors={isAdmin ? ["#0ea568", "#0ea568", "#0ea568"] : ["#5b8def", "#7c3aed", "#5b8def"]}
+              gradientColors={
+                isAdmin
+                  ? ["#0ea568", "#0ea568", "#0ea568"]
+                  : ["#5b8def", "#7c3aed", "#5b8def"]
+              }
               className="text-4xl sm:text-5xl font-bold"
             />
           </h1>
@@ -76,7 +85,7 @@ export default function ExpensiPage() {
 
         <main className="mx-auto max-w-4xl px-6 pb-16">
           {/* Full-page chat card */}
-          <ExpensiChat variant="page" palette={palette} />
+          <ExpensiChat variant="page" palette={palette} autoMode={autoMode} />
         </main>
       </div>
     </div>

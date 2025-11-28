@@ -136,6 +136,7 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   const [autoHandled, setAutoHandled] = useState(false); // prevent double auto-run
 
   const [inputFocused, setInputFocused] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const suggestionPrompts = [
   "Create an expense transaction",
   "Show my last 5 transactions",
@@ -470,13 +471,42 @@ const callExpensi = async (newMessages) => {
             >
               New chat
             </button>
-            <button
-              type="button"
-              onClick={handleResetChat}
-              className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-            >
-              Reset history
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+                aria-label="More options"
+              >
+                <span className="sr-only">More options</span>
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <circle cx="5" cy="12" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="19" cy="12" r="1.5" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-36 rounded-xl border border-slate-200 bg-white shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleResetChat();
+                      setMenuOpen(false);
+                    }}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Reset history
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -489,44 +519,60 @@ const callExpensi = async (newMessages) => {
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
-          >
+        {messages.map((m, i) => {
+          const isUser = m.role === "user";
+
+          const baseStyle =
+    isUser && colors ? { backgroundColor: colors.primary } : {};
+
+  // small stagger so they don't all pop in at exactly the same time
+  const bubbleStyle = {
+    ...baseStyle,
+    animationDelay: `${Math.min(i, 4) * 40}ms`, // max ~160ms
+  };
+
+          return (
             <div
+              key={i}
               className={
-                "px-3 py-2 rounded-2xl max-w-[80%] whitespace-pre-wrap " +
-                (m.role === "user"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-slate-100 text-slate-900")
-              }
-              style={
-                m.role === "user" && colors
-                  ? { backgroundColor: colors.primary }
-                  : undefined
+                "expensi-msg-row flex " +
+                (isUser ? "justify-end" : "justify-start")
               }
             >
-              {m.content}
+              <div
+                className={
+                  "expensi-msg-bubble expensi-msg-enter px-3 py-2 rounded-2xl max-w-[80%] whitespace-pre-wrap " +
+                  (isUser
+                    ? "bg-emerald-600 text-white"
+                    : "bg-slate-100 text-slate-900")
+                }
+                style={
+                  isUser && colors
+                    ? { backgroundColor: colors.primary }
+                    : undefined
+                }
+              >
+                {m.content}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
-  <div className="expensi-reasoning-enter mb-2 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1">
+        <div className="expensi-reasoning-enter mb-2 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+        <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1">
         <span className="expensi-gradient-text expensi-dots">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
         Expensi is thinking about your request
-      </span>
-      </span>
-      {/* optional chevron for collapse later */}
+        </span>
+        </span>
+        {/* optional chevron for collapse later */}
     </div>
-    <ul className="mt-1 list-disc pl-5 space-y-0.5">
-      <li className="expensi-step">Reviewing your message and intent</li>
-      <li className="expensi-step">Preparing a safe action or explanation</li>
-    </ul>
+      <ul className="mt-1 list-disc pl-5 space-y-0.5">
+        <li className="expensi-step">Reviewing your message and intent</li>
+        <li className="expensi-step">Preparing a safe action or explanation</li>
+      </ul>
   </div>
 )}
 
@@ -634,9 +680,6 @@ const callExpensi = async (newMessages) => {
 </div>
 
 </button>
-
-
-
           {/* Text input */}
           <input
             className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none border-none"

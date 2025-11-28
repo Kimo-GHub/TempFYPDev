@@ -306,3 +306,74 @@ html {
 }
 
 
+/* --- Expensi message animations --- */
+
+@keyframes exp-message-in-user {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes exp-message-in-bot {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* base bubble animation */
+.exp-message-bubble {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity, filter;
+}
+
+/* specific per-role variants */
+.exp-message-bubble--user {
+  animation-name: exp-message-in-user;
+}
+
+.exp-message-bubble--bot {
+  animation-name: exp-message-in-bot;
+}
+
+
+/* Debug: messages should *definitely* animate now */
+.expensi-msg-enter {
+  animation: expensi-msg-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Stronger animation so it's clearly visible */
+@keyframes expensi-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Optional: small difference in origin for nicer feel */
+.expensi-msg-row.justify-end .expensi-msg-bubble {
+  transform-origin: bottom right;
+}
+
+.expensi-msg-row.justify-start .expensi-msg-bubble {
+  transform-origin: bottom left;
+}

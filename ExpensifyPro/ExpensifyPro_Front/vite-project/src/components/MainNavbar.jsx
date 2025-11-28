@@ -11,6 +11,13 @@ export default function MainNavbar({ buttonPalette }) {
   const [expUser, setExpUser] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState("");
   const accentColor = buttonPalette?.primary || buttonPalette?.buttonBg;
+  const avatarStyle = accentColor
+    ? {
+        ringColor: accentColor,
+        backgroundColor: `${accentColor}1a`,
+        color: accentColor,
+      }
+    : undefined;
 
   // lock body scroll when mobile menu is open
   useEffect(() => {
@@ -118,37 +125,15 @@ export default function MainNavbar({ buttonPalette }) {
           {/* Right side */}
           <div className="hidden md:flex items-center gap-2">
             {isLoggedIn ? (
-              <>
-                <Link
-                  to={dashboardPath}
-                  className={
-                    buttonPalette
-                      ? "text-sm rounded-xl px-3 py-2 text-white shadow transition hover:opacity-90"
-                      : "text-sm rounded-xl px-3 py-2 text-white shadow transition bg-emerald-600 hover:bg-emerald-700"
-                  }
-                  style={
-                    buttonPalette
-                      ? {
-                          backgroundColor: buttonPalette.buttonBg,
-                          color: buttonPalette.buttonText,
-                        }
-                      : undefined
-                  }
+              <Link to={dashboardPath} title="Open your dashboard" className="inline-flex items-center gap-2">
+                <span className="sr-only">Dashboard</span>
+                <span
+                  className="h-9 w-9 rounded-full overflow-hidden ring-2 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900 shadow-sm"
+                  style={avatarStyle}
                 >
-                  Go to dashboard
-                </Link>
-                <button
-                  onClick={() => navigate(dashboardPath)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-700"
-                  aria-label="Profile"
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="avatar" className="h-full w-full rounded-full object-cover" />
-                  ) : (
-                    initials
-                  )}
-                </button>
-              </>
+                  {avatarUrl ? <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" /> : <span>{initials}</span>}
+                </span>
+              </Link>
             ) : (
               <>
                 <Link
@@ -200,15 +185,19 @@ export default function MainNavbar({ buttonPalette }) {
             ))}
             <div className="h-px bg-gray-200 my-2" />
             {isLoggedIn ? (
-              <>
-                <Link
-                  to={dashboardPath}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-xl px-3 py-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100"
+              <Link
+                to={dashboardPath}
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-3 rounded-xl px-3 py-2 border border-gray-200 bg-white text-sm text-gray-800"
+              >
+                <span
+                  className="h-9 w-9 rounded-full overflow-hidden ring-2 bg-emerald-500/20 flex items-center justify-center text-xs font-semibold text-emerald-900 shadow-sm"
+                  style={avatarStyle}
                 >
-                  Go to dashboard
-                </Link>
-              </>
+                  {avatarUrl ? <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" /> : <span>{initials}</span>}
+                </span>
+                <span>Dashboard</span>
+              </Link>
             ) : (
               <div className="flex gap-2">
                 <Link

@@ -65,3 +65,57 @@ html {
     }
   }
 }
+
+.expensi-gradient-text {
+  background: linear-gradient(90deg, #10b981, #3b82f6, #10b981);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: expensiGradientShift 3s ease infinite;
+}
+
+@keyframes expensiGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.expensi-step {
+  opacity: 0;
+  animation: fadeInStep 0.4s ease forwards;
+}
+
+.expensi-step:nth-child(1) { animation-delay: 0.05s; }
+.expensi-step:nth-child(2) { animation-delay: 0.15s; }
+.expensi-step:nth-child(3) { animation-delay: 0.25s; }
+
+@keyframes fadeInStep {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* temp styling */
+.expensi-reasoning-enter {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: fadeInReasoning 0.35s ease forwards;
+}
+
+@keyframes fadeInReasoning {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+.expensi-dots::after {
+  content: "...";
+  animation: dots 1.2s steps(3, end) infinite;
+}
+
+@keyframes dots {
+  0%   { content: "";   }
+  33%  { content: ".";  }
+  66%  { content: ".."; }
+  100% { content: "...";}
+}

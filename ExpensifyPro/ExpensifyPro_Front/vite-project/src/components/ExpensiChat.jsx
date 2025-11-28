@@ -163,7 +163,7 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
       }
 
       if (result.type === "action") {
-        // 🔥 nicer preview line instead of raw "wants to run action"
+        // nicer preview line instead of raw "wants to run action"
         const preview = formatActionPreview(result.action, result.params);
 
         setMessages((prev) => [
@@ -487,8 +487,23 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
         ))}
 
         {loading && (
-          <div className="mt-1 text-xs text-slate-400">Expensi is thinking..</div>
-        )}
+  <div className="expensi-reasoning-enter mb-2 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+    <div className="flex items-center justify-between">
+      <span className="flex items-center gap-1">
+        <span className="expensi-gradient-text expensi-dots">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+        Expensi is thinking about your request
+      </span>
+      </span>
+      {/* optional chevron for collapse later */}
+    </div>
+    <ul className="mt-1 list-disc pl-5 space-y-0.5">
+      <li className="expensi-step">Reviewing your message and intent</li>
+      <li className="expensi-step">Preparing a safe action or explanation</li>
+    </ul>
+  </div>
+)}
+
       </div>
 
       <div className="flex items-center gap-2 rounded-b-3xl border-t border-slate-200 bg-slate-50/60 p-2">

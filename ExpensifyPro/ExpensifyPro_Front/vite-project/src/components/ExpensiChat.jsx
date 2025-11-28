@@ -116,6 +116,10 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   const [animState, setAnimState] = useState("closed");
   const [bubbleDisabledUntil, setBubbleDisabledUntil] = useState(0);
 
+  const [orbState, setOrbState] = useState("idle"); 
+// "idle" | "thinking" | "action" | "success" | "error"
+
+
   const [messages, setMessages] = useState(() => {
     if (!storageKey) return [];
     try {
@@ -130,6 +134,14 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(variant === "page");
   const [autoHandled, setAutoHandled] = useState(false); // prevent double auto-run
+
+  const [inputFocused, setInputFocused] = useState(false);
+  const suggestionPrompts = [
+  "Create an expense transaction",
+  "Show my last 5 transactions",
+  "Create a budget",
+];
+
 
   const isFloating = variant === "floating";
   const colors = palette || null;
@@ -151,53 +163,66 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   }, [messages, storageKey]);
 
   // Helper: call Expensi API and append replies
-  const callExpensi = async (newMessages) => {
-    try {
-      const result = await askExpensi(newMessages);
+const callExpensi = async (newMessages) => {
+  try {
+    // 🧠 start thinking
+    setOrbState("thinking");
+    const result = await askExpensi(newMessages);
 
-      if (result.type === "text") {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: result.text },
-        ]);
-      }
+    if (result.type === "text") {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: result.text },
+      ]);
+      // ✅ text-only answer = success pulse
+      setOrbState("success");
+    }
 
-      if (result.type === "action") {
-        // nicer preview line instead of raw "wants to run action"
-        const preview = formatActionPreview(result.action, result.params);
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: preview,
-          },
-        ]);
-
-        const actionMessage = await runExpensiAction(
-          result.action,
-          result.params
-        );
-
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: actionMessage },
-        ]);
-      }
-    } catch (err) {
-      console.error("Expensi chat error:", err);
+    if (result.type === "action") {
+      // ⚙️ switch to “action channeling” while we call the backend
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "Sorry, I couldn't reach Expensi right now. Please try again in a moment.",
+          content: `Expensi wants to run action: ${result.action}`,
         },
       ]);
-    } finally {
-      setLoading(false);
+
+      setOrbState("action");
+      const actionMessage = await runExpensiAction(
+        result.action,
+        result.params
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: actionMessage },
+      ]);
+
+      // ✅ action finished
+      setOrbState("success");
     }
-  };
+  } catch (err) {
+    console.error("Expensi chat error:", err);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content:
+          "Sorry, I couldn't reach Expensi right now. Please try again in a moment.",
+      },
+    ]);
+    // ❌ error pulse
+    setOrbState("error");
+  } finally {
+    setLoading(false);
+
+    // after a short moment, drift back to idle
+    setTimeout(() => {
+      setOrbState("idle");
+    }, 1200);
+  }
+};
 
   // AUTO MODE: triggered when coming from Forecasts with "Recommended actions"
   useEffect(() => {
@@ -293,6 +318,7 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
     setMessages(newMessages);
     setInput("");
     setLoading(true);
+    setOrbState("thinking");
     await callExpensi(newMessages);
   };
 
@@ -506,31 +532,145 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
 
       </div>
 
-      <div className="flex items-center gap-2 rounded-b-3xl border-t border-slate-200 bg-slate-50/60 p-2">
-        <input
-          className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
+            {/* Footer: suggestions + prompt input */}
+      <div className="rounded-b-3xl border-t border-slate-200 bg-slate-50/70 px-3 pb-3 pt-2 space-y-2">
+        {/* Suggestion chips */}
+<div className="flex flex-wrap items-center gap-2">
+  <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+    Try
+  </span>
+
+  {suggestionPrompts.map((prompt) => (
+    <button
+      key={prompt}
+      type="button"
+      onClick={() => setInput(prompt)}
+      className="rounded-full border border-transparent bg-slate-50/80 px-3 py-1 text-[11px] font-medium text-slate-500 hover:-translate-y-[1px] hover:bg-slate-100 hover:text-slate-700 hover:shadow-sm transition"
+      style={
+        colors
+          ? {
+              backgroundColor: colors.primarySoft,
+              color: colors.primary,
+            }
+          : undefined
+      }
+    >
+      {prompt}
+    </button>
+  ))}
+</div>
+
+
+        {/* Prompt input pill */}
+        <div
+          className="flex items-center gap-2 rounded-2xl border bg-white/80 px-3 py-1.5 text-sm shadow-sm transition-all duration-150"
           style={
             colors
               ? {
-                  borderColor: colors.primary,
-                  boxShadow: `0 0 0 2px ${colors.primarySoft}`,
+                  borderColor: inputFocused
+                    ? colors.primary
+                    : "rgba(148,163,184,0.7)", // slate-400-ish
+                  boxShadow: inputFocused
+                    ? `0 0 0 2px ${colors.primarySoft}`
+                    : "0 8px 24px rgba(15,23,42,0.06)",
+                  transform: inputFocused ? "translateY(-1px)" : "none",
                 }
-              : undefined
+              : {
+                  transform: inputFocused ? "translateY(-1px)" : "none",
+                }
           }
-          placeholder="Ask Expensi anything..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <button
-          className="rounded-2xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-          style={{ backgroundColor: colors ? colors.buttonBg : undefined }}
-          onClick={handleSend}
-          disabled={loading || !input.trim()}
         >
-          Send
-        </button>
+          {/* Left icon / future quick actions */}
+       <button
+  type="button"
+  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 border border-slate-200/60 shadow-xs hover:bg-white transition"
+  style={
+    colors
+      ? {
+          borderColor: colors.primarySoft,
+          backgroundColor: "rgba(255,255,255,0.92)",
+        }
+      : undefined
+  }
+>
+  <div className="mr-3 flex items-center">
+  <div
+    className="expensi-orb-shell"
+    style={
+      colors
+        ? {
+            "--expensi-orb-main": colors.primary,
+            "--expensi-orb-soft": colors.primarySoft,
+          }
+        : undefined
+    }
+  >
+    {/* halo ring */}
+    <div
+      className={
+        "expensi-orb-halo " +
+        (orbState === "thinking" || orbState === "action"
+          ? "expensi-orb-halo-on"
+          : "")
+      }
+    />
+
+    {/* core orb – state-driven */}
+    <div
+      className={
+        "expensi-orb-core " +
+        (orbState === "thinking"
+          ? "orb-thinking"
+          : orbState === "action"
+          ? "orb-action"
+          : orbState === "success"
+          ? "orb-success"
+          : orbState === "error"
+          ? "orb-error"
+          : "orb-idle")
+      }
+    />
+  </div>
+</div>
+
+</button>
+
+
+
+          {/* Text input */}
+          <input
+            className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none border-none"
+            placeholder="Ask Expensi anything about your accounts, budgets or projects..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+          />
+
+          {/* Send button */}
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: colors ? colors.buttonBg || colors.primary : "#4f46e5",
+              opacity: loading ? 0.8 : 1,
+            }}
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+          >
+            {loading ? (
+              <span className="flex items-center gap-1">
+                <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-transparent" />
+                Sending…
+              </span>
+            ) : (
+              "Send"
+            )}
+          </button>
+        </div>
       </div>
+
     </div>
   );
 }

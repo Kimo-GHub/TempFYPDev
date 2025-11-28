@@ -14,6 +14,99 @@ function getCurrentUser() {
   }
 }
 
+// --- Small helper just for nicer action copy in the UI ---
+function formatActionPreview(action, params = {}) {
+  const user = params.user ?? params.user_id;
+  const account = params.account ?? params.account_id;
+  const currency = (params.currency || "USD").toUpperCase();
+  const amount =
+    params.amount != null && params.amount !== ""
+      ? `${params.amount} ${currency}`
+      : null;
+
+  switch (action) {
+    case "create_transaction": {
+      const type = params.type || "transaction";
+      const desc = params.description ? ` with description "${params.description}"` : "";
+      return `Expensi is creating an ${type} of ${amount || "an amount"} on account #${account ?? "?"} for user ${user ?? "?"}${desc}.`;
+    }
+
+    case "update_transaction": {
+      const id = params.id ?? params.transaction_id ?? "?";
+      return `Expensi is updating transaction #${id} with the new details you provided.`;
+    }
+
+    case "archive_transaction": {
+      const id = params.id ?? params.transaction_id ?? "?";
+      return `Expensi is archiving transaction #${id}.`;
+    }
+
+    case "unarchive_transaction": {
+      const id = params.id ?? params.transaction_id ?? "?";
+      return `Expensi is restoring transaction #${id} from archive.`;
+    }
+
+    case "create_project": {
+      const name = params.name || "a new project";
+      return `Expensi is creating project "${name}" for user ${user ?? "?"}.`;
+    }
+
+    case "create_account": {
+      const name = params.name || "a new account";
+      const type = params.type || "account";
+      return `Expensi is creating a ${type} called "${name}" for user ${user ?? "?"}.`;
+    }
+
+    case "update_account": {
+      const id = params.id ?? params.account_id ?? "?";
+      return `Expensi is updating account #${id} with the latest changes.`;
+    }
+
+    case "create_budget": {
+      const name = params.name || "a new budget";
+      return `Expensi is creating budget "${name}"${amount ? ` with amount ${amount}` : ""} for user ${user ?? "?"}.`;
+    }
+
+    case "update_budget": {
+      const id = params.budget_id ?? params.id ?? "?";
+      return `Expensi is updating budget #${id}.`;
+    }
+
+    case "create_automation": {
+      const type = params.type || "expense";
+      return `Expensi is setting up a recurring ${type}${amount ? ` of ${amount}` : ""} on account #${account ?? "?"}.`;
+    }
+
+    case "update_automation": {
+      const id = params.automation_id ?? params.transaction_id ?? params.id ?? "?";
+      return `Expensi is updating automation #${id} with the new schedule.`;
+    }
+
+    case "delete_automation": {
+      const id = params.automation_id ?? params.transaction_id ?? params.id ?? "?";
+      return `Expensi is deleting automation #${id}.`;
+    }
+
+    case "list_accounts":
+      return `Expensi is fetching your accounts list.`;
+
+    case "list_budgets":
+      return `Expensi is fetching your budgets with the requested filter.`;
+
+    case "list_transactions":
+      return `Expensi is fetching recent transactions for your user.`;
+
+    case "create_category": {
+      const name = params.name || "a new category";
+      const kind = params.kind || "category";
+      return `Expensi is creating a ${kind} category "${name}" for user ${user ?? "?"}.`;
+    }
+
+    default:
+      return `Expensi wants to run action: ${action}`;
+  }
+}
+
 function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
   const location = useLocation();
   const currentUser = getCurrentUser();
@@ -70,11 +163,14 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
       }
 
       if (result.type === "action") {
+        // 🔥 nicer preview line instead of raw "wants to run action"
+        const preview = formatActionPreview(result.action, result.params);
+
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Expensi wants to run action: ${result.action}`,
+            content: preview,
           },
         ]);
 
@@ -158,14 +254,14 @@ function ExpensiChat({ variant = "floating", palette, autoMode = null }) {
     const autoPrompt = parts.join("\n\n");
 
     // Use this only for the API call, don't show it in the UI
-   const convoForApi = [
-  ...messages,
-  { role: "user", content: autoPrompt },
-  ];
+    const convoForApi = [
+      ...messages,
+      { role: "user", content: autoPrompt },
+    ];
 
     setLoading(true);
     callExpensi(convoForApi);
-    
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoMode, variant, userId, autoHandled, messages]);
 

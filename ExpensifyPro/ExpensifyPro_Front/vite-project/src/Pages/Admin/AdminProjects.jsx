@@ -537,6 +537,7 @@ export default function AdminProjects() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-base font-semibold">{project.name}</div>
+                        <div className="text-xs text-gray-500">ID: {project.id}</div>
                         {project.code && <div className="text-xs text-gray-500">Code: {project.code}</div>}
                       </div>
                       <span

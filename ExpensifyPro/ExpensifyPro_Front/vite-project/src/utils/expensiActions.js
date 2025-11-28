@@ -180,7 +180,7 @@ export async function runExpensiAction(action, params) {
         return `✅ Transaction created (${fmtMoney(
           created.amount,
           created.currency || "USD"
-        )}) on account #${created.account}.`;
+        )})`;
       }
 
       case "update_transaction": {

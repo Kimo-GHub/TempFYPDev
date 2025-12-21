@@ -15,10 +15,19 @@ from ninja import Router
 from django.utils.timezone import now
 import pandas as pd
 import pandas as p  # (you had both; keeping as-is)
+from typing import List
+
+import httpx
+from ninja import Schema
+
 from ninja.security import APIKeyHeader
 
+from .stock_client import fetch_stock_quotes
+
+
 from .models import (
-    User, Account, Project, Category, Budget, Transaction, Organization, UserRole
+    User, Account, Project, Category, Budget, Transaction, Organization, UserRole, 
+    Security, MarketDataSnapshot, SimulatedPosition, TradingRuleSim,
 )
 from .tx_utils import apply_balance_effect
 
@@ -39,12 +48,24 @@ from .schemas import (
 
     # ---- Forecast schemas ----
     ForecastRequest, ForecastResponse, ForecastPoint, ForecastHistoryPoint,
+
+    # ---- Investments schemas ----
+    SecuritySchema,
+    SimulatedPositionSchema,
+    PaginatedSimulatedPositionResponse,
+    TradingRuleSimSchema,
+    TradingRuleSimCreateSchema,
+    TradingRuleSimUpdateSchema,
+    PaginatedTradingRuleSimResponse,
+    InvestmentSummary,
 )
 from .recurring import run_due_recurring
 
 api = NinjaAPI(title="ExpensifyPro API", version="1.0.0")
 
 
+
+API_URL = "https://financialmodelingprep.com/api/v3/quote/{}"
 
 
 # --- Add this: optional security that just forwards X-Org-Id to request ---
@@ -68,6 +89,40 @@ from expensi.api import router as expensi_router
 api.add_router("/expensi", expensi_router)
 
 
+
+# --- Stocks schema (for the frontend) ---
+
+class StockQuoteSchema(Schema):
+    symbol: str
+    name: str
+    price: float
+    change: float
+    changePct: float
+
+
+
+@api.get(
+    "/stocks/",
+    response={200: List[StockQuoteSchema], 400: MessageResponse},
+    tags=["Investments"],
+)
+def stocks_list(request, symbols: str = "AAPL,MSFT,NVDA,GOOGL,AMZN"):
+    """
+    Simple wrapper that fetches latest quotes for a few symbols.
+    """
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+        if not symbol_list:
+            symbol_list = ["AAPL", "MSFT", "NVDA"]
+
+        quotes = fetch_stock_quotes(symbol_list)
+        if not quotes:
+            raise RuntimeError("No quotes returned from provider")
+
+        return quotes
+    except Exception as e:
+        return 400, {"message": f"Failed to fetch stocks: {e}", "code": "stocks_fetch_error"}
+    
 # =========================
 # Org helpers
 # =========================
@@ -97,6 +152,13 @@ def _org_id(request) -> int:
             raise HttpError(401, "Invalid org_id format.")
 
     raise HttpError(401, "Authentication with organization required.")
+
+
+def _require_admin(request):
+    u = getattr(request, "user", None)
+    if not u or getattr(u, "role", None) != UserRole.ADMIN:
+        raise HttpError(403, "Admin access required")
+    return u
 
 
 def _fk_in_org_or_404(model, pk: Optional[int], org_id: int, label: str):
@@ -1381,6 +1443,313 @@ def delete_transaction(request, transaction_id: int):
         return he.status_code, {"message": he.message}
     except Exception as e:
         return 500, {"message": str(e)}
+
+# =========================
+# Serilize for investments
+# =========================
+
+def _serialize_sim_position(p: SimulatedPosition) -> SimulatedPositionSchema:
+    return SimulatedPositionSchema(
+        id=p.id,
+        org_id=p.org_id,
+        user_id=p.user_id,
+        security_id=p.security_id,
+        symbol=p.security.symbol,
+        name=p.security.name,
+        quantity=p.quantity,
+        avg_price=p.avg_price,
+        current_price=p.current_price,
+        market_value=p.market_value,
+        pnl_value=p.pnl_value,
+        created_at=getattr(p, "created_at", None),
+        updated_at=getattr(p, "updated_at", None),
+    )
+
+
+def _serialize_trading_rule(r: TradingRuleSim) -> TradingRuleSimSchema:
+    return TradingRuleSimSchema(
+        id=r.id,
+        org_id=r.org_id,
+        user_id=r.user_id,
+        name=r.name,
+        strategy_type=r.strategy_type,
+        security_id=r.security_id,
+        amount_per_run=r.amount_per_run,
+        interval=r.interval,
+        next_run=r.next_run,
+        is_active=r.is_active,
+        created_at=getattr(r, "created_at", None),
+        updated_at=getattr(r, "updated_at", None),
+    )
+
+
+
+# =========================
+# Investments — USER endpoints (org + current user)
+# =========================
+
+@api.get(
+    "/investments/user/summary/",
+    response={200: InvestmentSummary, **RESP_STD},
+    tags=["Investments"],
+)
+def investments_user_summary(request):
+    """
+    Summary for the current user's simulated portfolio in their org.
+    Powers the cards in Investments.jsx.
+    """
+    try:
+        org = _org_id(request)
+        u = getattr(request, "user", None)
+        if not u:
+            raise HttpError(401, "Authentication required")
+
+        qs = SimulatedPosition.objects.select_related("security").filter(org_id=org, user_id=u.id)
+
+        total_value = Decimal("0")
+        total_cost = Decimal("0")
+        for p in qs:
+            total_value += p.market_value
+            total_cost += (p.avg_price or 0) * (p.quantity or 0)
+        total_pnl = total_value - total_cost
+
+        # TODO: add a SimulatedCash model later; for now it's 0.
+        simulated_cash = Decimal("0")
+
+        return 200, {
+            "total_portfolio_value": total_value,
+            "total_pnl_value": total_pnl,
+            "simulated_cash": simulated_cash,
+        }
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
+
+@api.get(
+    "/investments/user/positions/",
+    response={200: PaginatedSimulatedPositionResponse, **RESP_STD},
+    tags=["Investments"],
+)
+def investments_user_positions(
+    request,
+    page: int = Query(1, description="Page number"),
+    page_size: int = Query(10, description="Items per page"),
+):
+    """
+    Paginated list of simulated positions for the current user.
+    Feeds the positions table in Investments.jsx.
+    """
+    try:
+        org = _org_id(request)
+        u = getattr(request, "user", None)
+        if not u:
+            raise HttpError(401, "Authentication required")
+
+        qs = (
+            SimulatedPosition.objects
+            .select_related("security")
+            .filter(org_id=org, user_id=u.id)
+            .order_by("security__symbol")
+        )
+
+        paginator = Paginator(qs, page_size)
+        try:
+            page_obj = paginator.page(page)
+        except PageNotAnInteger:
+            return 400, {"message": "Invalid page number", "code": "paginationError"}
+        except EmptyPage:
+            return 400, {"message": "Page number out of range", "code": "paginationError"}
+
+        results = [_serialize_sim_position(p) for p in page_obj.object_list]
+        payload = {
+            "info": PaginationInfo(
+                current_page=page,
+                total_pages=paginator.num_pages,
+                total_items=paginator.count,
+            ),
+            "results": results,
+        }
+        return 200, payload
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
+
+@api.get(
+    "/investments/user/rules/",
+    response={200: List[TradingRuleSimSchema], **RESP_STD},
+    tags=["Investments"],
+)
+def investments_user_rules(request):
+    """
+    List all simulated trading rules for the current user in their org.
+    Powers the 'Automated Trading Rules' panel in Investments.jsx.
+    """
+    try:
+        org = _org_id(request)
+        u = getattr(request, "user", None)
+        if not u:
+            raise HttpError(401, "Authentication required")
+
+        qs = TradingRuleSim.objects.filter(org_id=org, user_id=u.id).order_by("-created_at")
+        return 200, [_serialize_trading_rule(r) for r in qs]
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
+
+
+# =========================
+# Investments — ADMIN endpoints (org-wide, admin-only)
+# =========================
+
+@api.get(
+    "/investments/admin/summary/",
+    response={200: InvestmentSummary, **RESP_STD},
+    tags=["Investments"],
+)
+def investments_admin_summary(
+    request,
+    user_id: Optional[int] = Query(None, description="Filter by user id"),
+):
+    """
+    Org-wide simulated portfolio summary.
+    Admin can optionally scope to a given user via ?user_id=...
+    """
+    try:
+        admin = _require_admin(request)
+        org = _org_id(request)
+
+        qs = SimulatedPosition.objects.select_related("security").filter(org_id=org)
+        if user_id is not None:
+            qs = qs.filter(user_id=user_id)
+
+        total_value = Decimal("0")
+        total_cost = Decimal("0")
+        for p in qs:
+            total_value += p.market_value
+            total_cost += (p.avg_price or 0) * (p.quantity or 0)
+        total_pnl = total_value - total_cost
+
+        simulated_cash = Decimal("0")
+
+        return 200, {
+            "total_portfolio_value": total_value,
+            "total_pnl_value": total_pnl,
+            "simulated_cash": simulated_cash,
+        }
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
+
+@api.get(
+    "/investments/admin/positions/",
+    response={200: PaginatedSimulatedPositionResponse, **RESP_STD},
+    tags=["Investments"],
+)
+def investments_admin_positions(
+    request,
+    page: int = Query(1, description="Page number"),
+    page_size: int = Query(10, description="Items per page"),
+    user_id: Optional[int] = Query(None, description="Filter by user id"),
+):
+    """
+    Org-wide positions, admin-only. Optional filter by user.
+    """
+    try:
+        admin = _require_admin(request)
+        org = _org_id(request)
+
+        qs = (
+            SimulatedPosition.objects
+            .select_related("security", "user")
+            .filter(org_id=org)
+            .order_by("user_id", "security__symbol")
+        )
+        if user_id is not None:
+            qs = qs.filter(user_id=user_id)
+
+        paginator = Paginator(qs, page_size)
+        try:
+            page_obj = paginator.page(page)
+        except PageNotAnInteger:
+            return 400, {"message": "Invalid page number", "code": "paginationError"}
+        except EmptyPage:
+            return 400, {"message": "Page number out of range", "code": "paginationError"}
+
+        results = [_serialize_sim_position(p) for p in page_obj.object_list]
+        payload = {
+            "info": PaginationInfo(
+                current_page=page,
+                total_pages=paginator.num_pages,
+                total_items=paginator.count,
+            ),
+            "results": results,
+        }
+        return 200, payload
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
+
+@api.get(
+    "/investments/admin/rules/",
+    response={200: PaginatedTradingRuleSimResponse, **RESP_STD},
+    tags=["Investments"],
+)
+def investments_admin_rules(
+    request,
+    page: int = Query(1, description="Page number"),
+    page_size: int = Query(10, description="Items per page"),
+    user_id: Optional[int] = Query(None, description="Filter by user id"),
+):
+    """
+    Org-wide view of all simulated trading rules, admin-only.
+    """
+    try:
+        admin = _require_admin(request)
+        org = _org_id(request)
+
+        qs = TradingRuleSim.objects.select_related("user", "security").filter(org_id=org).order_by("-created_at")
+        if user_id is not None:
+            qs = qs.filter(user_id=user_id)
+
+        paginator = Paginator(qs, page_size)
+        try:
+            page_obj = paginator.page(page)
+        except PageNotAnInteger:
+            return 400, {"message": "Invalid page number", "code": "paginationError"}
+        except EmptyPage:
+            return 400, {"message": "Page number out of range", "code": "paginationError"}
+
+        results = [_serialize_trading_rule(r) for r in page_obj.object_list]
+        payload = {
+            "info": PaginationInfo(
+                current_page=page,
+                total_pages=paginator.num_pages,
+                total_items=paginator.count,
+            ),
+            "results": results,
+        }
+        return 200, payload
+
+    except HttpError as he:
+        return he.status_code, {"message": he.message}
+    except Exception as e:
+        return 500, {"message": str(e)}
+
 
 
 # =========================

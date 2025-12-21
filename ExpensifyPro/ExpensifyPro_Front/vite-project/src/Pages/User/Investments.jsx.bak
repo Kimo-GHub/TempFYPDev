@@ -1,0 +1,197 @@
+﻿import { TrendingUp, Wallet, Coins, LineChart, Pencil, PauseCircle, Trash2 } from "lucide-react";
+
+const summaryCards = [
+  { label: "Total Portfolio Value", value: "$54,230", delta: "+1.2%", icon: Wallet },
+  { label: "Simulated Cash", value: "$4,500", delta: "Holding 12%", icon: Coins },
+  { label: "Total PnL", value: "+$2,840", delta: "+6.4%", icon: LineChart },
+];
+
+const positions = [
+  { symbol: "AAPL", name: "Apple Inc.", quantity: 32, avgPrice: 165.2, currentPrice: 178.5, pnl: 429.6 },
+  { symbol: "TSLA", name: "Tesla", quantity: 15, avgPrice: 234.4, currentPrice: 242.1, pnl: 115.5 },
+  { symbol: "VOO", name: "Vanguard S&P 500", quantity: 18, avgPrice: 385.0, currentPrice: 400.2, pnl: 273.6 },
+  { symbol: "BTC", name: "Bitcoin (simulated)", quantity: 0.6, avgPrice: 60200, currentPrice: 61850, pnl: 990 },
+];
+
+const tradingRules = [
+  {
+    title: "Auto-invest paycheck",
+    description: "Simulate 8% of each paycheck into VOO and AAPL.",
+    status: "Active",
+    lastRun: "Today, 09:00",
+  },
+  {
+    title: "Rebalance monthly",
+    description: "Keep equities at 80% and cash at 20%; rebalance monthly.",
+    status: "Active",
+    lastRun: "3d ago",
+  },
+  {
+    title: "Volatility guard",
+    description: "Pause new buys if any holding drops more than 7% in a day.",
+    status: "Paused",
+    lastRun: "1w ago",
+  },
+];
+
+const currency = (value) =>
+  `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+export default function Investments() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Investments</h1>
+          <p className="text-sm text-gray-600">Your portfolio, simulations, and guardrails.</p>
+        </div>
+        <button className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+          <TrendingUp className="h-4 w-4" />
+          New Simulation
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {summaryCards.map(({ label, value, delta, icon: Icon }) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm backdrop-blur"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">{label}</p>
+              <div className="rounded-full bg-indigo-50 p-2 text-indigo-700">
+                <Icon className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3 text-2xl font-semibold text-gray-900">{value}</div>
+            <div
+              className={`mt-1 text-xs font-medium ${
+                delta.startsWith("+") ? "text-emerald-600" : "text-amber-600"
+              }`}
+            >
+              {delta}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-indigo-100 bg-white/90 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100/70 px-4 py-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Positions</h2>
+            <p className="text-sm text-gray-600">Personal holdings and simulated trades.</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="rounded-lg border border-indigo-200 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+              Export
+            </button>
+            <button className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500">
+              Sync
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-indigo-50/60 text-left text-xs font-semibold uppercase tracking-wide text-indigo-900">
+              <tr>
+                <th className="px-4 py-3">Symbol</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3 text-right">Quantity</th>
+                <th className="px-4 py-3 text-right">Avg Price</th>
+                <th className="px-4 py-3 text-right">Current Price</th>
+                <th className="px-4 py-3 text-right">PnL</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-indigo-50/80 text-gray-800">
+              {positions.map((pos) => (
+                <tr key={pos.symbol} className="hover:bg-indigo-50/40">
+                  <td className="px-4 py-3 font-semibold text-gray-900">{pos.symbol}</td>
+                  <td className="px-4 py-3 text-gray-700">{pos.name}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{pos.quantity}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{currency(pos.avgPrice)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{currency(pos.currentPrice)}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-semibold tabular-nums ${
+                      pos.pnl >= 0 ? "text-emerald-600" : "text-red-600"
+                    }`}
+                  >
+                    {`${pos.pnl >= 0 ? "+" : "-"}${currency(Math.abs(pos.pnl))}`}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </button>
+                      <button className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                        <PauseCircle className="h-4 w-4" />
+                        Pause
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100/70 pb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Automated Trading Rules</h2>
+            <p className="text-sm text-gray-600">Placeholders for your automations - no live trades.</p>
+          </div>
+          <button className="rounded-lg border border-indigo-200 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+            Add rule
+          </button>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {tradingRules.map((rule) => (
+            <div
+              key={rule.title}
+              className="flex flex-col gap-3 rounded-xl border border-indigo-100 bg-white/60 p-4 md:flex-row md:items-center md:justify-between"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900">{rule.title}</p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      rule.status === "Active"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {rule.status}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">{rule.description}</p>
+                <p className="text-xs text-gray-500">Last run {rule.lastRun}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </button>
+                <button className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                  <PauseCircle className="h-4 w-4" />
+                  Pause
+                </button>
+                <button className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

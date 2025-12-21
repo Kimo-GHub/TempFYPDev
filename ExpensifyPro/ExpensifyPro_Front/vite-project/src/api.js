@@ -62,6 +62,18 @@ const authFetch = (url, { method = "GET", headers = {}, body } = {}) => {
   const orgId = localStorage.getItem("org_id");
   if (orgId) h["X-Org-Id"] = orgId;
 
+  // Dev auth helper: attach user id (fallback to exp_user)
+  let userId = localStorage.getItem("user_id");
+  if (!userId) {
+    try {
+      const stored = localStorage.getItem("exp_user");
+      userId = stored ? JSON.parse(stored)?.id : null;
+    } catch {
+      userId = null;
+    }
+  }
+  if (userId) h["X-User-Id"] = userId;
+
   // CSRF for unsafe methods
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrftoken = getCookie("csrftoken");
@@ -291,4 +303,64 @@ export const apiService = {
 
   postForecast: (payload = {}) =>
     authFetch(`${API_BASE}/forecast/`, { method: "POST", body: payload }),
+
+
+
+    /* ========= Investments (Admin) ========= */
+  getAdminInvestmentsSummary: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      // keep org scoping consistent with the rest of the file
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/admin/summary/${qs ? `?${qs}` : ""}`);
+  },
+
+  getAdminInvestmentsPositions: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/admin/positions/${qs ? `?${qs}` : ""}`);
+  },
+
+  getAdminInvestmentsRules: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/admin/rules/${qs ? `?${qs}` : ""}`);
+  },
+
+  /* ========= Investments (User) ========= */
+  getUserInvestmentsSummary: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/user/summary/${qs ? `?${qs}` : ""}`);
+  },
+
+  getUserInvestmentsPositions: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/user/positions/${qs ? `?${qs}` : ""}`);
+  },
+
+  getUserInvestmentsRules: (params = {}) => {
+    const qs = buildQuery({
+      ...params,
+      org_id: localStorage.getItem("org_id") || params.org_id,
+    });
+    return authFetch(`${API_BASE}/investments/user/rules/${qs ? `?${qs}` : ""}`);
+  },
+  
+  /* ========= Stocks ========= */
+  getStocks: (symbols = "AAPL,MSFT,NVDA") => {
+    const qs = symbols ? `?symbols=${encodeURIComponent(symbols)}` : "";
+    return authFetch(`${API_BASE}/stocks/${qs}`);
+  },
+
 };

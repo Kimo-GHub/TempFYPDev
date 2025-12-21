@@ -33,6 +33,10 @@ TransactionStatusLiteral = Literal["pending", "cleared", "reconciled", "void"]
 RecurringIntervalLiteral = Literal["daily", "weekly", "monthly", "yearly"]
 CategoryKindLiteral = Literal["income", "expense"]
 
+AssetTypeLiteral = Literal["stock", "crypto", "etf"]
+StrategyTypeLiteral = Literal["dca", "rebalance", "threshold_buy", "threshold_sell"]
+
+
 
 # =========================
 # Org-aware base (READ)
@@ -381,6 +385,90 @@ class ForecastResponse(Schema):
     history: List[ForecastHistoryPoint]
     forecast: List[ForecastPoint]
     model_info: Dict[str, Any]
+
+
+
+
+
+# =========================
+# Investments / Simulated Trading
+# =========================
+
+class SecuritySchema(Schema):
+    id: int
+    symbol: str
+    name: str
+    asset_type: AssetTypeLiteral
+    exchange: Optional[str] = None
+    is_active: bool
+
+
+class SimulatedPositionSchema(OrgOwnedRead):
+    id: int
+    user_id: int
+    security_id: int
+    symbol: str
+    name: str
+    quantity: Decimal
+    avg_price: Decimal
+    current_price: Decimal
+    market_value: Decimal
+    pnl_value: Decimal
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class PaginatedSimulatedPositionResponse(Schema):
+    info: PaginationInfo
+    results: List[SimulatedPositionSchema]
+
+
+class TradingRuleSimSchema(OrgOwnedRead):
+    id: int
+    user_id: int
+    name: str
+    strategy_type: StrategyTypeLiteral
+    security_id: Optional[int] = None
+    amount_per_run: Optional[Decimal] = None
+    interval: Optional[RecurringIntervalLiteral] = None
+    next_run: Optional[datetime] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class TradingRuleSimCreateSchema(Schema):
+    name: str
+    strategy_type: StrategyTypeLiteral
+    security: Optional[int] = None
+    amount_per_run: Optional[Decimal] = None
+    interval: Optional[RecurringIntervalLiteral] = None
+    next_run: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    user: Optional[int] = None  # defaults to current user if omitted
+
+
+class TradingRuleSimUpdateSchema(Schema):
+    name: Optional[str] = None
+    strategy_type: Optional[StrategyTypeLiteral] = None
+    security: Optional[Optional[int]] = None
+    amount_per_run: Optional[Decimal] = None
+    interval: Optional[RecurringIntervalLiteral] = None
+    next_run: Optional[datetime] = None
+    is_active: Optional[bool] = None
+    user: Optional[int] = None
+
+
+class PaginatedTradingRuleSimResponse(Schema):
+    info: PaginationInfo
+    results: List[TradingRuleSimSchema]
+
+
+class InvestmentSummary(Schema):
+    total_portfolio_value: Decimal
+    total_pnl_value: Decimal
+    simulated_cash: Decimal
+
 
 # =========================
 # Error Messages

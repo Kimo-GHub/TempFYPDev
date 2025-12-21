@@ -22,6 +22,7 @@ import AdminProjects from "./Pages/Admin/AdminProjects";
 import Reports from "./Pages/Admin/Reports";
 import Arima from "./Pages/Admin/Arima";
 import AdminCategories from "./Pages/Admin/AdminCategories";
+import AdminInvestments from "./Pages/Admin/Investments";
 
 // User (aliased)
 import UserLayout from "./Pages/User/UserLayout";
@@ -33,6 +34,8 @@ import Projects from "./Pages/User/Projects";
 import Budgets from "./Pages/User/Budgets";
 import Categories from "./Pages/User/Categories";
 import Analytics from "./Pages/User/Analytics";
+import UserInvestments from "./Pages/User/Investments";
+import UserStocks from "./Pages/User/Stocks";
 import { expensiPalettes } from "./theme/expensiPalette";
 
 function getCurrentUser() {
@@ -68,6 +71,7 @@ export default function App() {
         <Route path="categories" element={<AdminCategories />} />
         <Route path="reports" element={<Reports />} />
         <Route path="arima" element={<Arima />} />
+        <Route path="investments" element={<AdminInvestments />} />
       </Route>
 
       {/* User */}
@@ -80,6 +84,8 @@ export default function App() {
         <Route path="budgets" element={<Budgets />} />
         <Route path="categories" element={<Categories />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="investments" element={<UserInvestments />} />
+        <Route path="stocks" element={<UserStocks />} />
       </Route>
 
       {/* Support old/typed link */}

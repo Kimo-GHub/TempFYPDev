@@ -15,6 +15,8 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+# settings.py
+ALPHAVANTAGE_API_KEY = "YL31VMGJW31VAROC"  
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -56,6 +58,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.DevUserMiddleware",   # dev helper to attach request.user from X-User-Id
     "core.middleware.OrgScopeMiddleware",   # after session/auth so request.user is available
 ]
 
@@ -132,8 +135,8 @@ CORS_ALLOW_HEADERS = [
     "origin",
     "user-agent",
     "x-csrftoken",
-    "x-requested-with",
-    "x-org-id",  # ← important for dev fallback org scoping
+    "x-org-id",  # org scoping header
+    "x-user-id",  # dev helper to attach request.user
 ]
 
 # Expose headers to the browser if you ever need to read them
@@ -163,3 +166,5 @@ try:
     RECURRING_WORKER_INTERVAL = float(os.getenv("RECURRING_WORKER_INTERVAL", "60"))
 except ValueError:
     RECURRING_WORKER_INTERVAL = 60.0
+
+

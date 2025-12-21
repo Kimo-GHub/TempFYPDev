@@ -266,3 +266,148 @@ class Transaction(OrgOwnedModel):
 
     def __str__(self):
         return f"{self.type}: {self.amount} {self.currency or ''} @ {self.date:%Y-%m-%d}"
+
+
+# =========================
+# Investments / Simulated Trading
+# =========================
+
+class Security(models.Model):
+    """
+    Global security table for stocks / crypto / ETFs.
+    Not org-scoped: the same symbol is shared by all orgs.
+    """
+    class AssetType(models.TextChoices):
+        STOCK = "stock", "Stock"
+        CRYPTO = "crypto", "Crypto"
+        ETF = "etf", "ETF"
+
+    symbol = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=255)
+    asset_type = models.CharField(max_length=10, choices=AssetType.choices)
+    exchange = models.CharField(max_length=50, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "securities"
+
+    def __str__(self):
+        return self.symbol
+
+
+class MarketDataSnapshot(models.Model):
+    """
+    Time-series OHLCV snapshots for each security.
+    Used for charts (Stocks / Crypto tabs) and repricing positions.
+    """
+    security = models.ForeignKey(
+        Security,
+        on_delete=models.CASCADE,
+        related_name="snapshots",
+    )
+    timestamp = models.DateTimeField()
+    open = models.DecimalField(max_digits=18, decimal_places=4)
+    high = models.DecimalField(max_digits=18, decimal_places=4)
+    low = models.DecimalField(max_digits=18, decimal_places=4)
+    close = models.DecimalField(max_digits=18, decimal_places=4)
+    volume = models.DecimalField(max_digits=24, decimal_places=2, null=True, blank=True)
+    source = models.CharField(max_length=50, null=True, blank=True)
+
+    class Meta:
+        db_table = "market_data_snapshots"
+        indexes = [
+            models.Index(fields=["security", "-timestamp"], name="mds_security_ts_idx"),
+        ]
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.security.symbol} @ {self.timestamp.isoformat()}"
+
+
+class SimulatedPosition(OrgOwnedModel):
+    """
+    Per-user, per-org simulated holdings.
+    This powers the Investments tab positions + summary.
+    """
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="sim_positions",
+        db_column="userId",
+    )
+    security = models.ForeignKey(
+        Security,
+        on_delete=models.CASCADE,
+        related_name="sim_positions",
+    )
+    quantity = models.DecimalField(max_digits=20, decimal_places=8)
+    avg_price = models.DecimalField(max_digits=18, decimal_places=4)
+    current_price = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+
+    class Meta:
+        db_table = "simulated_positions"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["org", "user", "security"],
+                name="sim_positions_org_user_security_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} - {self.security.symbol}"
+
+    @property
+    def market_value(self):
+        return (self.quantity or 0) * (self.current_price or 0)
+
+    @property
+    def pnl_value(self):
+        return (self.current_price - self.avg_price) * self.quantity
+
+
+class TradingRuleSim(OrgOwnedModel):
+    """
+    Lightweight representation of automated simulated strategies (DCA, thresholds, etc.).
+    For now it's simple and feeds the Investments tab's 'Automated Trading Rules' list.
+    """
+    class StrategyType(models.TextChoices):
+        DCA = "dca", "Dollar-cost averaging"
+        REBALANCE = "rebalance", "Rebalance"
+        THRESHOLD_BUY = "threshold_buy", "Threshold Buy"
+        THRESHOLD_SELL = "threshold_sell", "Threshold Sell"
+
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="sim_trading_rules",
+        db_column="userId",
+    )
+    name = models.CharField(max_length=255)
+    strategy_type = models.CharField(max_length=32, choices=StrategyType.choices)
+    security = models.ForeignKey(
+        Security,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sim_trading_rules",
+    )
+    amount_per_run = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True
+    )
+    interval = models.CharField(
+        max_length=16,
+        choices=RecurringInterval.choices,
+        null=True,
+        blank=True,
+    )
+    next_run = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "sim_trading_rules"
+        indexes = [
+            models.Index(fields=["org", "user", "is_active"], name="sim_rules_org_user_active_idx"),
+        ]
+
+    def __str__(self):
+        return self.name

@@ -10,6 +10,7 @@ import {
   LogOut,
   X,
   Tags,
+  TrendingUp,
 } from "lucide-react";
 
 /**
@@ -26,6 +27,7 @@ const navItems = [
   { to: "/admin/categories", label: "Categories", icon: Tags },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/arima", label: "Forecasts", icon: BarChart3 },
+  { to: "/admin/investments", label: "Investments", icon: TrendingUp },
 ];
 
 export default function AdminSidebar({ open, onClose }) {

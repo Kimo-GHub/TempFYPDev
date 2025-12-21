@@ -10,6 +10,7 @@ import {
   Tags,
   LogOut,
   X,
+  TrendingUp,
 } from "lucide-react";
 
 /**
@@ -26,6 +27,8 @@ const navItems = [
   { to: "/user/budgets", label: "Budgets", icon: PiggyBank },
   { to: "/user/categories", label: "Categories", icon: Tags },
   { to: "/user/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/user/investments", label: "Investments", icon: TrendingUp },
+  { to: "/user/stocks", label: "Stocks", icon: TrendingUp },
 ];
 
 export default function UserSidebar({ open, onClose }) {

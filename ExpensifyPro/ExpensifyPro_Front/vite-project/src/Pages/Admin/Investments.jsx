@@ -1,0 +1,354 @@
+﻿// src/Pages/Admin/Investments.jsx
+import { useEffect, useState, useMemo } from "react";
+import {
+  TrendingUp,
+  Wallet,
+  Coins,
+  LineChart,
+  ShieldCheck,
+  Pencil,
+  PauseCircle,
+  Trash2,
+} from "lucide-react";
+import { apiService } from "../../api";
+
+
+
+const fmtCurrency = (value, currency = "USD") => {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+};
+
+export default function Investments() {
+  const [summary, setSummary] = useState(null);
+  const [positions, setPositions] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const currency = summary?.currency || "USD";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Adjust URLs if your prefix is different (but with Ninja it's /api/…)
+       const [summaryRes, positionsRes, rulesRes] = await Promise.all([
+        apiService.getAdminInvestmentsSummary(),
+        apiService.getAdminInvestmentsPositions(),
+        apiService.getAdminInvestmentsRules(),
+]);
+
+        if (!isMounted) return;
+
+        setSummary(summaryRes?.data || summaryRes); // depending on apiService
+
+        const posPayload = positionsRes?.data || positionsRes;
+        const posArray = Array.isArray(posPayload?.results)
+          ? posPayload.results
+          : Array.isArray(posPayload)
+            ? posPayload
+            : [];
+        setPositions(posArray);
+
+        const rulePayload = rulesRes?.data || rulesRes;
+        const ruleArray = Array.isArray(rulePayload?.results)
+          ? rulePayload.results
+          : Array.isArray(rulePayload)
+            ? rulePayload
+            : [];
+        setRules(ruleArray);
+      } catch (err) {
+        console.error("Failed to load admin investments", err);
+        if (isMounted) {
+          setError("Failed to load investments data.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Map API summary → the 3 cards you already had
+  const summaryCards = useMemo(() => {
+    if (!summary) {
+      return [
+        { label: "Total Portfolio Value", value: "—", delta: "0.0%", icon: Wallet },
+        { label: "Simulated Cash", value: "—", delta: "0.0%", icon: Coins },
+        { label: "Total PnL", value: "—", delta: "0.0%", icon: LineChart },
+      ];
+    }
+
+    // IMPORTANT:
+    // Match these property names with what your /investments/admin/summary/ returns.
+    // I’m assuming something like:
+    // { total_value, simulated_cash, total_pnl, total_value_delta, ... }
+    const totalValue = summary.total_value ?? summary.totalValue;
+    const simulatedCash = summary.simulated_cash ?? summary.simulatedCash;
+    const totalPnl = summary.total_pnl ?? summary.totalPnl;
+
+    const totalValueDelta = summary.total_value_delta ?? "+0.0%";
+    const simulatedCashDelta = summary.simulated_cash_delta ?? "+0.0%";
+    const totalPnlDelta = summary.total_pnl_delta ?? "+0.0%";
+
+    return [
+      {
+        label: "Total Portfolio Value",
+        value: fmtCurrency(totalValue, currency),
+        delta: totalValueDelta,
+        icon: Wallet,
+      },
+      {
+        label: "Simulated Cash",
+        value: fmtCurrency(simulatedCash, currency),
+        delta: simulatedCashDelta,
+        icon: Coins,
+      },
+      {
+        label: "Total PnL",
+        value: fmtCurrency(totalPnl, currency),
+        delta: totalPnlDelta,
+        icon: LineChart,
+      },
+    ];
+  }, [summary, currency]);
+
+  const isEmpty = !loading && !error && positions.length === 0 && rules.length === 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Investments</h1>
+          <p className="text-sm text-gray-600">
+            Org-wide view of portfolio activity across all users.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm hover:bg-emerald-50">
+            <ShieldCheck className="h-4 w-4" />
+            Governance
+          </button>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-500">
+            <TrendingUp className="h-4 w-4" />
+            New Strategy
+          </button>
+        </div>
+      </div>
+
+      {/* Error + empty states */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {isEmpty && (
+        <div className="rounded-xl border border-emerald-100 bg-white px-4 py-3 text-sm text-gray-700">
+          No investment data yet. Add securities, positions, or rules to see them here.
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {summaryCards.map(({ label, value, delta, icon: Icon }) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm backdrop-blur"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">{label}</p>
+              <div className="rounded-full bg-emerald-50 p-2 text-emerald-700">
+                <Icon className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3 text-2xl font-semibold text-gray-900">
+              {loading && !summary ? "…" : value}
+            </div>
+            <div
+              className={`mt-1 text-xs font-medium ${
+                String(delta).startsWith("+") ? "text-emerald-600" : "text-amber-600"
+              }`}
+            >
+              {delta} vs last period
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Positions table */}
+      <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white/90 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100/70 px-4 py-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Positions</h2>
+            <p className="text-sm text-gray-600">Combined holdings across all users.</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+              Export
+            </button>
+            <button
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-500"
+              onClick={() => window.location.reload()}
+            >
+              Sync
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-emerald-50/60 text-left text-xs font-semibold uppercase tracking-wide text-emerald-900">
+              <tr>
+                <th className="px-4 py-3">Symbol</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3 text-right">Quantity</th>
+                <th className="px-4 py-3 text-right">Avg Price</th>
+                <th className="px-4 py-3 text-right">Current Price</th>
+                <th className="px-4 py-3 text-right">PnL</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-emerald-50/80 text-gray-800">
+              {loading && positions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-xs text-gray-500">
+                    Loading positions…
+                  </td>
+                </tr>
+              ) : positions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-xs text-gray-500">
+                    No positions yet.
+                  </td>
+                </tr>
+              ) : (
+                positions.map((pos) => (
+                  <tr key={pos.id ?? pos.symbol} className="hover:bg-emerald-50/40">
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      {pos.symbol}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{pos.name}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {pos.quantity}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {fmtCurrency(pos.avg_price ?? pos.avgPrice, currency)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {fmtCurrency(pos.current_price ?? pos.currentPrice, currency)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-semibold tabular-nums ${
+                        (pos.pnl_value ?? pos.pnl) >= 0
+                          ? "text-emerald-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {fmtCurrency(pos.pnl_value ?? pos.pnl, currency)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </button>
+                        <button className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                          <PauseCircle className="h-4 w-4" />
+                          Pause
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Trading rules list */}
+      <div className="rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100/70 pb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Automated Trading Rules</h2>
+            <p className="text-sm text-gray-600">
+              Simulation only – no live orders are sent.
+            </p>
+          </div>
+          <button className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+            Add rule
+          </button>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {loading && rules.length === 0 ? (
+            <p className="px-1 text-xs text-gray-500">Loading rules…</p>
+          ) : rules.length === 0 ? (
+            <p className="px-1 text-xs text-gray-500">No rules configured yet.</p>
+          ) : (
+            rules.map((rule) => (
+              <div
+                key={rule.id ?? rule.title}
+                className="flex flex-col gap-3 rounded-xl border border-emerald-100 bg-white/60 p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {rule.name ?? rule.title}
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        (rule.status ?? "active").toLowerCase() === "active"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {(rule.status ?? "Active").toString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {rule.description ?? "—"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Last run{" "}
+                    {rule.last_run_at ??
+                      rule.lastRun ??
+                      "—"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </button>
+                  <button className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                    <PauseCircle className="h-4 w-4" />
+                    Pause
+                  </button>
+                  <button className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
